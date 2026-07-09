@@ -24,7 +24,7 @@ export default function Board() {
   if (carregando) return <LoadingScreen label="Carregando board" />;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 animate-fade-in">
+    <div className="mx-auto max-w-7xl space-y-5 animate-fade-up">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-white sm:text-2xl">Board</h1>
@@ -80,8 +80,8 @@ export default function Board() {
                     </span>
                   </div>
                   <div className="space-y-3">
-                    {itens.map((d) => (
-                      <DemandaCard key={d.id} demanda={d} compact />
+                    {itens.map((d, i) => (
+                      <DemandaCard key={d.id} demanda={d} compact index={i} />
                     ))}
                     {itens.length === 0 && (
                       <div className="rounded-xl border border-dashed border-white/[0.06] py-8 text-center text-xs text-slate-600">
@@ -96,8 +96,8 @@ export default function Board() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {demandas.map((d) => (
-            <DemandaCard key={d.id} demanda={d} />
+          {demandas.map((d, i) => (
+            <DemandaCard key={d.id} demanda={d} index={i} />
           ))}
         </div>
       )}

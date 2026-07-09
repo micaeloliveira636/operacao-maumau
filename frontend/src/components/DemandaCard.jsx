@@ -3,12 +3,13 @@ import { StatusBadge, CategoriaTag, PrioridadeTag } from './ui';
 import { Icon } from './Icon';
 import { formatarData } from '../lib/format';
 
-export function DemandaCard({ demanda, compact }) {
+export function DemandaCard({ demanda, compact, index = 0 }) {
   const horarios = demanda.horarios || [];
   return (
     <Link
       to={`/demandas/${demanda.id}`}
-      className="card block p-4 transition duration-200 hover:-translate-y-0.5 hover:border-brand-400/30 hover:shadow-glow"
+      style={{ animationDelay: `${Math.min(index, 12) * 0.05}s` }}
+      className="card card-lift animate-card block p-4 hover:border-brand-400/30 hover:shadow-glow"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="line-clamp-2 flex-1 text-sm font-medium text-slate-100">{demanda.titulo}</p>

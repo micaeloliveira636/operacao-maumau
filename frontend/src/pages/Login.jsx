@@ -36,9 +36,9 @@ export default function Login() {
         <div className="absolute -right-32 bottom-0 h-96 w-96 rounded-full bg-accent-500/10 blur-[120px]" />
       </div>
 
-      <div className="relative w-full max-w-md animate-fade-in">
+      <div className="relative w-full max-w-md animate-fade-up">
         <div className="mb-8 flex flex-col items-center text-center">
-          <img src="/icon.svg" alt="Maumau" className="mb-4 h-16 w-16 rounded-2xl shadow-glow" />
+          <img src="/icon.svg" alt="Maumau" className="mb-4 h-16 w-16 rounded-2xl shadow-glow animate-pop-in" />
           <h1 className="text-2xl font-semibold tracking-tight text-white">Operação Maumau</h1>
           <p className="mt-1 text-sm text-slate-500">Acesso restrito à equipe</p>
         </div>

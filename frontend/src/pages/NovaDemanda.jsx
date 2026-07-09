@@ -5,6 +5,7 @@ import { useFetch } from '../lib/useFetch';
 import { useToast } from '../context/ToastContext';
 import { CATEGORIAS, CAMPANHAS, VELOCIDADES, PRIORIDADES } from '../lib/constants';
 import { Spinner } from '../components/ui';
+import { SuccessOverlay } from '../components/SuccessOverlay';
 import { Icon } from '../components/Icon';
 
 export default function NovaDemanda() {
@@ -27,6 +28,7 @@ export default function NovaDemanda() {
   const [horarios, setHorarios] = useState(['']);
   const [campanhas, setCampanhas] = useState([]); // nomes selecionados
   const [enviando, setEnviando] = useState(false);
+  const [criadaId, setCriadaId] = useState(null); // dispara overlay de sucesso
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -64,17 +66,21 @@ export default function NovaDemanda() {
         campanhasDestino,
         releaseIds,
       });
-      toast.sucesso('Demanda criada');
-      navigate(`/demandas/${demanda.id}`, { replace: true });
+      setCriadaId(demanda.id); // mostra o overlay; navega no onDone
     } catch (err) {
       toast.erro(err.message || 'Erro ao criar demanda');
-    } finally {
       setEnviando(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-2xl animate-fade-in">
+    <div className="mx-auto max-w-2xl animate-fade-up">
+      {criadaId && (
+        <SuccessOverlay
+          message="Demanda criada"
+          onDone={() => navigate(`/demandas/${criadaId}`, { replace: true })}
+        />
+      )}
       <button onClick={() => navigate(-1)} className="link-quiet mb-4 inline-flex items-center gap-1.5 text-sm">
         <Icon name="arrowLeft" className="h-4 w-4" /> Voltar
       </button>

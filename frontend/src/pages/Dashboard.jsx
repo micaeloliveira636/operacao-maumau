@@ -30,7 +30,7 @@ export default function Dashboard() {
     .slice(0, 5);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 animate-fade-in">
+    <div className="mx-auto max-w-6xl space-y-6 animate-fade-up">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-white sm:text-2xl">
@@ -49,11 +49,12 @@ export default function Dashboard() {
 
       {/* Métricas */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {CARDS.map((c) => (
+        {CARDS.map((c, i) => (
           <Link
             to="/board"
             key={c.key}
-            className="card group flex flex-col gap-3 p-4 transition hover:border-brand-400/30"
+            style={{ animationDelay: `${i * 0.06}s` }}
+            className="card card-lift animate-card group flex flex-col gap-3 p-4 hover:border-brand-400/30"
           >
             <div className="flex items-center justify-between">
               <span className={`flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04] ${c.tone}`}>
@@ -82,7 +83,7 @@ export default function Dashboard() {
             <ul className="divide-y divide-white/[0.04]">
               {proximas.map((d) => (
                 <li key={d.id}>
-                  <Link to={`/demandas/${d.id}`} className="flex items-center gap-3 py-3 transition hover:opacity-80">
+                  <Link to={`/demandas/${d.id}`} className="row-hover -mx-2 flex items-center gap-3 rounded-lg px-2 py-3">
                     <div className="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-lg border border-white/5 bg-ink-800 text-center">
                       <span className="text-sm font-semibold leading-none text-slate-100">
                         {formatarData(d.dataAlvo).split(' ')[0]}

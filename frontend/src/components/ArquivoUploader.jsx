@@ -57,7 +57,7 @@ export function ArquivoUploader({ demandaId, ordemInicial, horariosSugeridos = [
       <button
         onClick={() => inputRef.current?.click()}
         disabled={ocupado}
-        className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/10 bg-white/[0.015] px-6 py-8 text-center transition hover:border-brand-400/40 hover:bg-brand-500/[0.04] disabled:opacity-60"
+        className="animate-breathe flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/10 bg-white/[0.015] px-6 py-8 text-center transition hover:border-brand-400/40 hover:bg-brand-500/[0.04] disabled:opacity-60"
       >
         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-500/10 text-brand-300">
           {ocupado ? <Spinner className="h-5 w-5" /> : <Icon name="upload" className="h-5 w-5" />}

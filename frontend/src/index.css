@@ -22,7 +22,6 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* scrollbar discreta */
   * {
     scrollbar-width: thin;
     scrollbar-color: rgba(74, 143, 212, 0.28) transparent;
@@ -48,7 +47,6 @@
 }
 
 @layer components {
-  /* Cartão de vidro */
   .card {
     @apply rounded-2xl border border-white/[0.06] bg-ink-850/70 shadow-card backdrop-blur-xl;
   }
@@ -57,11 +55,11 @@
     @apply rounded-2xl border border-white/[0.06] bg-ink-850/60 backdrop-blur-xl;
   }
 
-  /* Botões */
+  /* Botões — com ripple (relative+overflow) e btn-press no active */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium
-      transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60
-      disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98];
+    @apply relative inline-flex select-none items-center justify-center gap-2 overflow-hidden rounded-xl px-4 py-2.5
+      text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2
+      focus-visible:ring-brand-400/60 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.96];
   }
   .btn-primary {
     @apply btn bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-[0_8px_24px_-8px_rgba(74,143,212,0.6)]
@@ -77,10 +75,9 @@
     @apply btn border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20;
   }
 
-  /* Inputs */
   .input {
     @apply w-full rounded-xl border border-white/10 bg-ink-900/70 px-3.5 py-2.5 text-sm text-slate-100
-      placeholder:text-slate-500 transition focus:border-brand-400/50 focus:outline-none
+      placeholder:text-slate-500 transition duration-200 focus:border-brand-400/60 focus:outline-none
       focus:ring-2 focus:ring-brand-400/25;
   }
   .label {
@@ -94,9 +91,113 @@
   .link-quiet {
     @apply text-slate-400 transition hover:text-slate-100;
   }
+
+  /* Elevação no hover dos cards */
+  .card-lift {
+    transition: transform 0.2s cubic-bezier(0.22, 0.61, 0.36, 1), border-color 0.2s ease, box-shadow 0.25s ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Hover suave em linhas de lista */
+  .row-hover {
+    transition: background-color 0.15s ease;
+  }
+  .row-hover:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+  }
 }
 
-/* respeita safe-area em telas com notch (PWA fullscreen) */
+/* ======================================================
+   Sistema de animações (portado do protótipo v3)
+   ====================================================== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes cardStagger {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastIn {
+  from { transform: translateY(-120%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes checkDraw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes ringPulse {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 143, 212, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(74, 143, 212, 0.1); }
+}
+@keyframes indicatorSlide {
+  from { opacity: 0; transform: scaleY(0); }
+  to { opacity: 1; transform: scaleY(1); }
+}
+@keyframes ripple {
+  to { transform: scale(3); opacity: 0; }
+}
+@keyframes slideOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Classes utilitárias de animação */
+.animate-fade-in { animation: fadeIn 0.35s ease both; }
+.animate-fade-up { animation: fadeUp 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.animate-scale-in { animation: scaleIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-pop-in { animation: popIn 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.animate-card { animation: cardStagger 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.animate-toast-in { animation: toastIn 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.animate-breathe { animation: breathe 3.2s ease-in-out infinite; }
+
+/* Ripple injetado por clique (ver useRipple) */
+.ripple-ink {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(0);
+  opacity: 0.6;
+  pointer-events: none;
+  animation: ripple 0.6s ease-out forwards;
+}
+
+/* Barra indicadora do item ativo da sidebar */
+.nav-active-indicator {
+  animation: indicatorSlide 0.25s ease both;
+}
+
+/* Respeita quem prefere menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* safe-area (PWA fullscreen) */
 .safe-top {
   padding-top: max(0px, env(safe-area-inset-top));
 }

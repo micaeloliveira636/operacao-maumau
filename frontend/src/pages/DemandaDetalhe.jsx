@@ -8,6 +8,7 @@ import { formatarData } from '../lib/format';
 import { StatusBadge, CategoriaTag, PrioridadeTag, LoadingScreen, EmptyState, Modal, Spinner } from '../components/ui';
 import { WhatsappPreview } from '../components/WhatsappPreview';
 import { ArquivoUploader } from '../components/ArquivoUploader';
+import { SuccessOverlay } from '../components/SuccessOverlay';
 import { Icon } from '../components/Icon';
 
 const EDITAVEL = ['pendente', 'em_andamento', 'rejeitado'];
@@ -25,6 +26,7 @@ export default function DemandaDetalhe() {
   const [modalRejeitar, setModalRejeitar] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [payload, setPayload] = useState(null);
+  const [overlay, setOverlay] = useState(null); // mensagem do overlay de sucesso
 
   const carregar = useCallback(async () => {
     try {
@@ -52,7 +54,9 @@ export default function DemandaDetalhe() {
     try {
       const { demanda: upd } = await api.patch(`/demandas/${id}/status`, { novoStatus, ...extra });
       setDemanda(upd);
-      toast.sucesso(`Status: ${STATUS[novoStatus]?.label || novoStatus}`);
+      if (novoStatus === 'aprovado') setOverlay('Demanda aprovada');
+      else if (novoStatus === 'concluido') setOverlay('Concluída');
+      else toast.sucesso(`Status: ${STATUS[novoStatus]?.label || novoStatus}`);
     } catch (err) {
       toast.erro(err.message || 'Falha ao mudar status');
     } finally {
@@ -126,7 +130,8 @@ export default function DemandaDetalhe() {
   const arquivosAprovados = arquivos.filter((a) => a.status === 'aprovado').length;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 animate-fade-in">
+    <div className="mx-auto max-w-4xl space-y-6 animate-fade-up">
+      {overlay && <SuccessOverlay message={overlay} onDone={() => setOverlay(null)} />}
       <button onClick={() => navigate(-1)} className="link-quiet inline-flex items-center gap-1.5 text-sm">
         <Icon name="arrowLeft" className="h-4 w-4" /> Voltar
       </button>
@@ -226,9 +231,10 @@ export default function DemandaDetalhe() {
           <EmptyState icon="image" titulo="Nenhuma mídia" descricao="As mídias enviadas aparecerão aqui." />
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {arquivos.map((arq) => (
+            {arquivos.map((arq, i) => (
               <ArquivoCard
                 key={arq.id}
+                index={i}
                 arquivo={arq}
                 isAdmin={isAdmin}
                 podeDeletar={podeEditar}
@@ -387,7 +393,7 @@ function ActionBar({
   return <div className="flex flex-wrap gap-2">{btns}</div>;
 }
 
-function ArquivoCard({ arquivo, isAdmin, podeDeletar, statusDemanda, onAprovar, onRejeitar, onDeletar }) {
+function ArquivoCard({ arquivo, isAdmin, podeDeletar, statusDemanda, onAprovar, onRejeitar, onDeletar, index = 0 }) {
   const isVideo = arquivo.tipo === 'video';
   const tone =
     arquivo.status === 'aprovado'
@@ -397,7 +403,10 @@ function ArquivoCard({ arquivo, isAdmin, podeDeletar, statusDemanda, onAprovar, 
       : 'border-white/10';
 
   return (
-    <div className={`group overflow-hidden rounded-xl border ${tone} bg-ink-850`}>
+    <div
+      style={{ animationDelay: `${Math.min(index, 12) * 0.05}s` }}
+      className={`group animate-card overflow-hidden rounded-xl border ${tone} bg-ink-850`}
+    >
       <div className="relative aspect-[4/5] bg-ink-950">
         {isVideo ? (
           <video src={arquivo.cloudinaryUrl} className="h-full w-full object-cover" muted playsInline controls preload="metadata" />

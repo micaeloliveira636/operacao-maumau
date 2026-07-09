@@ -4,7 +4,10 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { instalarRipple } from './lib/ripple';
 import './index.css';
+
+instalarRipple();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

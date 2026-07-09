@@ -94,7 +94,7 @@ export default function Copys() {
   if (carregando) return <LoadingScreen label="Carregando copys" />;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 animate-fade-in">
+    <div className="mx-auto max-w-4xl space-y-5 animate-fade-up">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-white sm:text-2xl">Copys de lançamento</h1>
@@ -114,8 +114,8 @@ export default function Copys() {
         <EmptyState icon="copy" titulo="Nenhuma copy" descricao="Cadastre textos reutilizáveis de lançamento." />
       ) : (
         <div className="space-y-3">
-          {copys.map((copy) => (
-            <div key={copy.id} className="card p-4">
+          {copys.map((copy, i) => (
+            <div key={copy.id} style={{ animationDelay: `${Math.min(i, 12) * 0.05}s` }} className="card animate-card p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <h3 className="font-medium text-slate-100">{copy.nome}</h3>

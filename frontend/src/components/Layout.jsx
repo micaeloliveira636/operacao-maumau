@@ -21,7 +21,7 @@ export function Layout({ children }) {
   const itens = navItems(isAdmin);
 
   const linkClass = ({ isActive }) =>
-    `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+    `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
       isActive
         ? 'bg-brand-500/15 text-white shadow-[inset_0_0_0_1px_rgba(74,143,212,0.35)]'
         : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'
@@ -42,8 +42,15 @@ export function Layout({ children }) {
         <nav className="flex-1 space-y-1 px-3 py-2">
           {itens.map((it) => (
             <NavLink key={it.to} to={it.to} end={it.end} className={linkClass}>
-              <Icon name={it.icon} className="h-[18px] w-[18px]" />
-              {it.label}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="nav-active-indicator absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-400" />
+                  )}
+                  <Icon name={it.icon} className="h-[18px] w-[18px]" />
+                  {it.label}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>

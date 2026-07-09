@@ -51,7 +51,7 @@ export default function Config() {
   const permissao = permissaoAtual();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 animate-fade-in">
+    <div className="mx-auto max-w-2xl space-y-5 animate-fade-up">
       <h1 className="text-xl font-semibold text-white sm:text-2xl">Ajustes</h1>
 
       {/* Perfil */}

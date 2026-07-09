@@ -63,7 +63,7 @@ export default function Usuarios() {
   if (carregando) return <LoadingScreen label="Carregando equipe" />;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 animate-fade-in">
+    <div className="mx-auto max-w-3xl space-y-5 animate-fade-up">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-white sm:text-2xl">Equipe</h1>
@@ -75,8 +75,8 @@ export default function Usuarios() {
       </div>
 
       <div className="space-y-2">
-        {usuarios.map((u) => (
-          <div key={u.id} className="card flex items-center gap-3 p-3.5">
+        {usuarios.map((u, i) => (
+          <div key={u.id} style={{ animationDelay: `${Math.min(i, 12) * 0.05}s` }} className="card animate-card flex items-center gap-3 p-3.5">
             <Avatar nome={u.nome} role={u.role} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
