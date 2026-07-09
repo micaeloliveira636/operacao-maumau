@@ -9,7 +9,10 @@ export default function Board() {
   const { data, carregando } = useFetch('/demandas', []);
   const [busca, setBusca] = useState('');
   const [categoria, setCategoria] = useState('');
-  const [modo, setModo] = useState('board'); // board | lista
+  // no mobile começa em lista (kanban horizontal é ruim de usar no dedo)
+  const [modo, setModo] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768 ? 'lista' : 'board'
+  );
 
   const demandas = useMemo(() => {
     let arr = data?.demandas || [];

@@ -5,7 +5,7 @@
    - focar/abrir a aba ao clicar na notificação
 */
 
-const CACHE = 'maumau-shell-v1';
+const CACHE = 'maumau-shell-v2';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {

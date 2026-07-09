@@ -70,7 +70,7 @@ export function Layout({ children }) {
       </aside>
 
       {/* Coluna principal */}
-      <div className="flex min-h-full flex-1 flex-col lg:pl-64">
+      <div className="flex min-h-full min-w-0 flex-1 flex-col lg:pl-64">
         {/* Topbar */}
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-white/[0.06] bg-ink-950/80 px-4 py-3 backdrop-blur-xl safe-top sm:px-6">
           <div className="flex items-center gap-2 lg:hidden">
@@ -94,7 +94,7 @@ export function Layout({ children }) {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-5 pb-24 sm:px-6 lg:pb-8">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-6 lg:pb-8">{children}</main>
       </div>
 
       {/* Navegação inferior mobile */}

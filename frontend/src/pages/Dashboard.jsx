@@ -41,7 +41,7 @@ export default function Dashboard() {
           </p>
         </div>
         {isAdmin && (
-          <Link to="/demandas/nova" className="btn-primary">
+          <Link to="/demandas/nova" className="btn-primary hidden sm:inline-flex">
             <Icon name="plus" className="h-4 w-4" /> Nova demanda
           </Link>
         )}

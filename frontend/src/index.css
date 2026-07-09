@@ -13,6 +13,17 @@
     height: 100%;
   }
 
+  /* Nunca permitir scroll horizontal no mobile */
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+  #root {
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+
   body {
     @apply bg-ink-950 text-slate-200 antialiased;
     background-image:
