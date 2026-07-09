@@ -1,0 +1,54 @@
+# Deploy do backend no Render (Blueprint).
+# No Render: New > Blueprint > aponte para este repositório.
+# As variáveis marcadas com sync:false devem ser preenchidas no dashboard do Render.
+services:
+  - type: web
+    name: operacao-maumau-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_WHATSAPP
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: maumau-media
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: SENDFLOW_API_URL
+        sync: false
+      - key: SENDFLOW_API_KEY
+        sync: false
+      - key: SENDFLOW_NOTIFY_PATH
+        value: /v1/messages/text
+      - key: SENDFLOW_NOTIFY_ACCOUNT
+        sync: false

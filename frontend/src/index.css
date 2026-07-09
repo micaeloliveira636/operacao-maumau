@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-ink-950 text-slate-200 antialiased;
+    background-image:
+      radial-gradient(1200px 600px at 15% -10%, rgba(74, 143, 212, 0.13), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(58, 175, 169, 0.08), transparent 55%);
+    background-attachment: fixed;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* scrollbar discreta */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(74, 143, 212, 0.28) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(74, 143, 212, 0.22);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(74, 143, 212, 0.45);
+    background-clip: content-box;
+  }
+
+  ::selection {
+    background: rgba(74, 143, 212, 0.4);
+  }
+}
+
+@layer components {
+  /* Cartão de vidro */
+  .card {
+    @apply rounded-2xl border border-white/[0.06] bg-ink-850/70 shadow-card backdrop-blur-xl;
+  }
+
+  .panel {
+    @apply rounded-2xl border border-white/[0.06] bg-ink-850/60 backdrop-blur-xl;
+  }
+
+  /* Botões */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium
+      transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60
+      disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-[0_8px_24px_-8px_rgba(74,143,212,0.6)]
+      hover:from-brand-400 hover:to-brand-500;
+  }
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/[0.02] text-slate-200 hover:bg-white/[0.06];
+  }
+  .btn-danger {
+    @apply btn border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20;
+  }
+  .btn-success {
+    @apply btn border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full rounded-xl border border-white/10 bg-ink-900/70 px-3.5 py-2.5 text-sm text-slate-100
+      placeholder:text-slate-500 transition focus:border-brand-400/50 focus:outline-none
+      focus:ring-2 focus:ring-brand-400/25;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-400;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium;
+  }
+
+  .link-quiet {
+    @apply text-slate-400 transition hover:text-slate-100;
+  }
+}
+
+/* respeita safe-area em telas com notch (PWA fullscreen) */
+.safe-top {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}

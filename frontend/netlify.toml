@@ -1,0 +1,28 @@
+# Deploy do frontend no Netlify.
+# No Netlify: New site > selecione o repo > Base directory: frontend
+# As variáveis VITE_* são configuradas em Site settings > Environment variables.
+
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA: todas as rotas caem no index.html (react-router cuida do resto)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# O service worker nunca deve ser cacheado agressivamente
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
