@@ -1,9 +1,82 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   STATUS, TONE_CLASSES, CATEGORIA_COR, CATEGORIA_LABEL, PRIORIDADE_COR,
 } from '../lib/constants';
 import { iniciais } from '../lib/format';
 import { Icon } from './Icon';
+
+/**
+ * Select customizado (substitui o <select> nativo "feio").
+ * options: array de { value, label } ou de strings.
+ * Dropdown com animação de abertura, hover e check no item ativo.
+ */
+export function Select({ value, onChange, options = [], placeholder = 'Selecione…', className = '', disabled }) {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef(null);
+  const opts = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+  const atual = opts.find((o) => String(o.value) === String(value));
+
+  useEffect(() => {
+    if (!aberto) return;
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setAberto(false);
+    };
+    const onKey = (e) => e.key === 'Escape' && setAberto(false);
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [aberto]);
+
+  function escolher(v) {
+    onChange?.(v);
+    setAberto(false);
+  }
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setAberto((a) => !a)}
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-ink-900/70 px-3.5 py-2.5 text-left text-[15px] transition-all duration-200 sm:text-sm
+          ${aberto ? 'border-brand-400/60 ring-2 ring-brand-400/25' : 'border-white/10 hover:border-white/20'}
+          ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+      >
+        <span className={`min-w-0 flex-1 truncate ${atual ? 'text-slate-100' : 'text-slate-500'}`}>
+          {atual ? atual.label : placeholder}
+        </span>
+        <Icon
+          name="chevronDown"
+          className={`h-4 w-4 flex-none text-slate-400 transition-transform duration-200 ${aberto ? 'rotate-180 text-brand-300' : ''}`}
+        />
+      </button>
+
+      {aberto && (
+        <div className="animate-fade-down absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-64 overflow-auto rounded-xl border border-white/10 bg-ink-850/95 p-1.5 shadow-2xl backdrop-blur-xl">
+          {opts.length === 0 && <p className="px-3 py-2 text-sm text-slate-500">Sem opções.</p>}
+          {opts.map((o) => {
+            const on = String(o.value) === String(value);
+            return (
+              <button
+                key={String(o.value)}
+                type="button"
+                onClick={() => escolher(o.value)}
+                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-[15px] transition sm:text-sm active:scale-[0.98]
+                  ${on ? 'bg-brand-500/15 text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'}`}
+              >
+                <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                {on && <Icon name="check" className="h-4 w-4 flex-none text-brand-300" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function StatusBadge({ status, className = '' }) {
   const s = STATUS[status] || { label: status, tone: 'slate' };

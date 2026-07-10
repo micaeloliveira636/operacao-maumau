@@ -66,6 +66,17 @@
       font-size: 16px;
     }
   }
+
+  /* iOS Safari dá auto-zoom quando um campo focado tem fonte < 16px.
+     Isso ampliava e "cortava" a tela no iPhone. Forçamos >=16px nos
+     controles apenas no mobile (no desktop o .input volta a ser text-sm). */
+  @media (max-width: 639px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
 @layer components {
@@ -161,6 +172,30 @@
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideLeft {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideSidebar {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes toastOut {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-120%); opacity: 0; }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
@@ -204,6 +239,9 @@
 /* Classes utilitárias de animação */
 .animate-fade-in { animation: fadeIn 0.35s ease both; }
 .animate-fade-up { animation: fadeUp 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.animate-fade-down { animation: fadeDown 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.animate-slide-right { animation: slideRight 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.animate-slide-left { animation: slideLeft 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 .animate-scale-in { animation: scaleIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .animate-pop-in { animation: popIn 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 .animate-card { animation: cardStagger 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both; }

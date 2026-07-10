@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useFetch } from '../lib/useFetch';
 import { BOARD_COLUNAS, CATEGORIAS } from '../lib/constants';
-import { LoadingScreen, EmptyState } from '../components/ui';
+import { LoadingScreen, EmptyState, Select } from '../components/ui';
 import { DemandaCard } from '../components/DemandaCard';
 import { Icon } from '../components/Icon';
 
@@ -59,12 +59,13 @@ export default function Board() {
             className="input pl-9"
           />
         </div>
-        <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="input w-auto">
-          <option value="">Todas categorias</option>
-          {CATEGORIAS.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
+        <Select
+          value={categoria}
+          onChange={setCategoria}
+          placeholder="Todas categorias"
+          className="min-w-[180px] flex-1 sm:w-56 sm:flex-none"
+          options={[{ value: '', label: 'Todas categorias' }, ...CATEGORIAS.map((c) => ({ value: c.value, label: c.label }))]}
+        />
       </div>
 
       {demandas.length === 0 ? (

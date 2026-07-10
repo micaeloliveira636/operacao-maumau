@@ -53,6 +53,24 @@ EX: 29,41,59,77,91,133,195,281,407 ETC
 Link atualizado: {link}`,
   },
   {
+    id: 'ent-1230',
+    label: '12h30 — Entrada validada (dia normal)',
+    precisaSlot: true,
+    precisaLink: true,
+    texto: `*ENTRADA VALIDADA✅*
+
+Família, finalizamos a validação em todas as nossas contas sobre as falhas do sistema - Aproveitem!🚨
+
+*SLOT: {slot}*
+
+ESTRATÉGIA: Comece com uma bet baixa e suba após ganhos pequenos para alinhar ao padrão!
+
+DEPOSITE VALORES QUEBRADOS
+EX: 29,41,59,77,91,133,195,281,407 ETC
+
+Link atualizado: {link}`,
+  },
+  {
     id: 'ent-1230-sn',
     label: '12h30 — Sistema novo (quinta)',
     precisaSlot: true,

@@ -5,7 +5,7 @@ import { useFetch } from '../lib/useFetch';
 import { useToast } from '../context/ToastContext';
 import { CATEGORIAS, CAMPANHAS, VELOCIDADES, PRIORIDADES } from '../lib/constants';
 import { MODELOS, SLOTS, categoriaUsaLink, aplicarSlot } from '../lib/modelos';
-import { Spinner } from '../components/ui';
+import { Spinner, Select } from '../components/ui';
 import { SuccessOverlay } from '../components/SuccessOverlay';
 import { WhatsappPreview } from '../components/WhatsappPreview';
 import { Icon } from '../components/Icon';
@@ -126,9 +126,11 @@ export default function NovaDemanda() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label">Categoria</label>
-              <select className="input" value={form.categoria} onChange={(e) => mudarCategoria(e.target.value)}>
-                {CATEGORIAS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
+              <Select
+                value={form.categoria}
+                onChange={mudarCategoria}
+                options={CATEGORIAS.map((c) => ({ value: c.value, label: c.label }))}
+              />
             </div>
             <div>
               <label className="label">Data alvo</label>
@@ -160,12 +162,12 @@ export default function NovaDemanda() {
 
           <div>
             <label className="label">Atribuir a</label>
-            <select className="input" value={form.atribuidoA} onChange={(e) => set('atribuidoA', e.target.value)} required>
-              <option value="">Selecione um operador…</option>
-              {operadores.map((u) => (
-                <option key={u.id} value={u.id}>{u.nome} ({u.role})</option>
-              ))}
-            </select>
+            <Select
+              value={form.atribuidoA}
+              onChange={(v) => set('atribuidoA', v)}
+              placeholder="Selecione um operador…"
+              options={operadores.map((u) => ({ value: u.id, label: `${u.nome} (${u.role})` }))}
+            />
           </div>
 
           <div>
@@ -207,10 +209,7 @@ export default function NovaDemanda() {
             {modeloSel?.precisaSlot && (
               <div>
                 <label className="label">Slot</label>
-                <select className="input" value={slot} onChange={(e) => mudarSlot(e.target.value)}>
-                  <option value="">Selecione o slot…</option>
-                  {SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <Select value={slot} onChange={mudarSlot} placeholder="Selecione o slot…" options={SLOTS} />
               </div>
             )}
 
@@ -273,9 +272,11 @@ export default function NovaDemanda() {
         <div className="card card-pad grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label">Velocidade</label>
-            <select className="input" value={form.velocidade} onChange={(e) => set('velocidade', e.target.value)}>
-              {VELOCIDADES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-            </select>
+            <Select
+              value={form.velocidade}
+              onChange={(v) => set('velocidade', v)}
+              options={VELOCIDADES.map((v) => ({ value: v.value, label: v.label }))}
+            />
           </div>
           <div className="flex items-end">
             <label className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5">

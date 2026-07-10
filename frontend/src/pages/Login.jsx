@@ -29,7 +29,7 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
       {/* brilho de fundo */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-40 top-0 h-96 w-96 rounded-full bg-brand-600/20 blur-[120px]" />

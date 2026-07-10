@@ -21,10 +21,10 @@ export function Layout({ children }) {
   const itens = navItems(isAdmin);
 
   const linkClass = ({ isActive }) =>
-    `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+    `group relative flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all duration-200 active:scale-[0.98] ${
       isActive
-        ? 'bg-brand-500/15 text-white shadow-[inset_0_0_0_1px_rgba(74,143,212,0.35)]'
-        : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'
+        ? 'border-brand-400/40 bg-brand-500/15 text-white'
+        : 'border-transparent text-slate-400 hover:border-white/10 hover:bg-white/[0.04] hover:text-slate-100'
     }`;
 
   return (
@@ -42,15 +42,8 @@ export function Layout({ children }) {
         <nav className="flex-1 space-y-1 px-3 py-2">
           {itens.map((it) => (
             <NavLink key={it.to} to={it.to} end={it.end} className={linkClass}>
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <span className="nav-active-indicator absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-400" />
-                  )}
-                  <Icon name={it.icon} className="h-[18px] w-[18px]" />
-                  {it.label}
-                </>
-              )}
+              <Icon name={it.icon} className="h-[18px] w-[18px]" />
+              {it.label}
             </NavLink>
           ))}
         </nav>
@@ -72,7 +65,7 @@ export function Layout({ children }) {
       {/* Coluna principal */}
       <div className="flex min-h-full min-w-0 flex-1 flex-col lg:pl-64">
         {/* Topbar */}
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-white/[0.06] bg-ink-950/80 px-4 py-3 backdrop-blur-xl safe-top sm:px-6">
+        <header className="sticky top-0 z-20 flex min-h-[60px] items-center gap-3 border-b border-white/[0.06] bg-ink-950/80 px-4 py-3.5 backdrop-blur-xl safe-top sm:px-6 sm:py-4">
           <div className="flex items-center gap-2 lg:hidden">
             <img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" />
             <span className="text-sm font-semibold text-white">Maumau</span>

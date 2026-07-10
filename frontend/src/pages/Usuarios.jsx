@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useToast } from '../context/ToastContext';
-import { LoadingScreen, Modal, Spinner, Avatar } from '../components/ui';
+import { LoadingScreen, Modal, Spinner, Avatar, Select } from '../components/ui';
 import { Icon } from '../components/Icon';
 
 const VAZIO = { nome: '', email: '', senha: '', whatsapp: '', role: 'operador' };
@@ -119,10 +119,11 @@ export default function Usuarios() {
               </div>
               <div>
                 <label className="label">Papel</label>
-                <select className="input" value={modal.role} onChange={(e) => setModal({ ...modal, role: e.target.value })}>
-                  <option value="operador">Operador</option>
-                  <option value="admin">Admin</option>
-                </select>
+                <Select
+                  value={modal.role}
+                  onChange={(v) => setModal({ ...modal, role: v })}
+                  options={[{ value: 'operador', label: 'Operador' }, { value: 'admin', label: 'Admin' }]}
+                />
               </div>
             </div>
             <div>

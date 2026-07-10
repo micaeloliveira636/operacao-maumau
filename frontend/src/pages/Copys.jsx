@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { LoadingScreen, EmptyState, Modal, Spinner } from '../components/ui';
+import { LoadingScreen, EmptyState, Modal, Spinner, Select } from '../components/ui';
 import { Icon } from '../components/Icon';
 
 const TIPOS = [
@@ -167,9 +167,11 @@ export default function Copys() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Tipo</label>
-                <select className="input" value={editando.tipo || ''} onChange={(e) => setEditando({ ...editando, tipo: e.target.value })}>
-                  {TIPOS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+                <Select
+                  value={editando.tipo || ''}
+                  onChange={(v) => setEditando({ ...editando, tipo: v })}
+                  options={TIPOS.map((t) => ({ value: t.value, label: t.label }))}
+                />
               </div>
               <div>
                 <label className="label">Ordem</label>
