@@ -130,14 +130,14 @@ export default function DemandaDetalhe() {
   const arquivosAprovados = arquivos.filter((a) => a.status === 'aprovado').length;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 animate-fade-up">
+    <div className="page max-w-4xl animate-fade-up">
       {overlay && <SuccessOverlay message={overlay} onDone={() => setOverlay(null)} />}
       <button onClick={() => navigate(-1)} className="link-quiet inline-flex items-center gap-1.5 text-sm">
         <Icon name="arrowLeft" className="h-4 w-4" /> Voltar
       </button>
 
       {/* Cabeçalho */}
-      <div className="card p-5">
+      <div className="card card-pad">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -147,7 +147,7 @@ export default function DemandaDetalhe() {
                 <PrioridadeTag prioridade={demanda.prioridade} className="px-2 py-1" />
               )}
             </div>
-            <h1 className="mt-3 text-xl font-semibold text-white sm:text-2xl">{demanda.titulo}</h1>
+            <h1 className="mt-3 page-title">{demanda.titulo}</h1>
             {demanda.descricao && <p className="mt-2 text-sm text-slate-400">{demanda.descricao}</p>}
           </div>
           {isAdmin && EDITAVEL.includes(demanda.status) && (
@@ -250,7 +250,7 @@ export default function DemandaDetalhe() {
 
       {/* Payload de agendamento */}
       {payload && (
-        <div className="card p-5">
+        <div className="card card-pad">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-200">Payload de agendamento</h2>
             <button onClick={copiarPayload} className="btn-ghost px-3 py-1.5 text-xs">

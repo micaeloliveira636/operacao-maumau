@@ -43,7 +43,7 @@ export default function Login() {
           <p className="mt-1 text-sm text-slate-500">Acesso restrito à equipe</p>
         </div>
 
-        <form onSubmit={onSubmit} className="card space-y-4 p-6">
+        <form onSubmit={onSubmit} className="card space-y-4 p-5 sm:p-6">
           <div>
             <label className="label" htmlFor="email">Email</label>
             <input

@@ -94,11 +94,11 @@ export default function Copys() {
   if (carregando) return <LoadingScreen label="Carregando copys" />;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 animate-fade-up">
+    <div className="page max-w-4xl animate-fade-up">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white sm:text-2xl">Copys de lançamento</h1>
-          <p className="mt-1 text-sm text-slate-500">{copys.length} copy(s) salvas</p>
+          <h1 className="page-title">Copys de lançamento</h1>
+          <p className="page-sub">{copys.length} copy(s) salvas</p>
         </div>
         {isAdmin && (
           <button

@@ -30,13 +30,11 @@ export default function Dashboard() {
     .slice(0, 5);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 animate-fade-up">
+    <div className="page max-w-6xl animate-fade-up">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white sm:text-2xl">
-            Olá, {user?.nome?.split(' ')[0]}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="page-title">Olá, {user?.nome?.split(' ')[0]}</h1>
+          <p className="page-sub">
             {isAdmin ? 'Visão geral da operação.' : 'Suas demandas atribuídas.'}
           </p>
         </div>
@@ -63,16 +61,16 @@ export default function Dashboard() {
               <Icon name="chevronRight" className="h-4 w-4 text-slate-600 transition group-hover:text-slate-400" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-white">{cont(c.status)}</p>
-              <p className="text-xs text-slate-500">{c.label}</p>
+              <p className="text-xl font-semibold text-white sm:text-2xl">{cont(c.status)}</p>
+              <p className="text-[11px] text-slate-500 sm:text-xs">{c.label}</p>
             </div>
           </Link>
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         {/* Próximas por data-alvo */}
-        <div className="panel p-5 lg:col-span-2">
+        <div className="panel card-pad lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-200">Próximas por prazo</h2>
             <Link to="/board" className="text-xs text-brand-300 hover:text-brand-200">Ver board</Link>
@@ -107,7 +105,7 @@ export default function Dashboard() {
         </div>
 
         {/* Atividade recente */}
-        <div className="panel p-5">
+        <div className="panel card-pad">
           <h2 className="mb-4 text-sm font-semibold text-slate-200">Atualizadas há pouco</h2>
           {recentes.length === 0 ? (
             <p className="text-sm text-slate-500">Sem atividade.</p>

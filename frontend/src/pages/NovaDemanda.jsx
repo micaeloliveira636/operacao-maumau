@@ -84,11 +84,11 @@ export default function NovaDemanda() {
       <button onClick={() => navigate(-1)} className="link-quiet mb-4 inline-flex items-center gap-1.5 text-sm">
         <Icon name="arrowLeft" className="h-4 w-4" /> Voltar
       </button>
-      <h1 className="text-xl font-semibold text-white sm:text-2xl">Nova demanda</h1>
-      <p className="mt-1 text-sm text-slate-500">Defina o conteúdo, os horários e a quem será atribuída.</p>
+      <h1 className="page-title">Nova demanda</h1>
+      <p className="page-sub">Defina o conteúdo, os horários e a quem será atribuída.</p>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-5">
-        <div className="card space-y-4 p-5">
+      <form onSubmit={onSubmit} className="mt-5 space-y-4 sm:space-y-5">
+        <div className="card card-pad space-y-4">
           <div>
             <label className="label">Título</label>
             <input className="input" value={form.titulo} onChange={(e) => set('titulo', e.target.value)}
@@ -149,7 +149,7 @@ export default function NovaDemanda() {
         </div>
 
         {/* Horários */}
-        <div className="card space-y-3 p-5">
+        <div className="card card-pad space-y-3">
           <div className="flex items-center justify-between">
             <label className="label mb-0">Horários de envio</label>
             <button type="button" onClick={addHorario} className="btn-ghost px-2.5 py-1.5 text-xs">
@@ -172,7 +172,7 @@ export default function NovaDemanda() {
         </div>
 
         {/* Campanhas */}
-        <div className="card space-y-3 p-5">
+        <div className="card card-pad space-y-3">
           <label className="label mb-0">Campanhas destino</label>
           <div className="grid gap-2 sm:grid-cols-3">
             {CAMPANHAS.map((c) => {
@@ -195,7 +195,7 @@ export default function NovaDemanda() {
         </div>
 
         {/* Config de envio */}
-        <div className="card grid gap-4 p-5 sm:grid-cols-2">
+        <div className="card card-pad grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label">Velocidade</label>
             <select className="input" value={form.velocidade} onChange={(e) => set('velocidade', e.target.value)}>

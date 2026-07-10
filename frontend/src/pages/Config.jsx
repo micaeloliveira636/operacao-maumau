@@ -51,11 +51,11 @@ export default function Config() {
   const permissao = permissaoAtual();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 animate-fade-up">
-      <h1 className="text-xl font-semibold text-white sm:text-2xl">Ajustes</h1>
+    <div className="page max-w-2xl animate-fade-up">
+      <h1 className="page-title">Ajustes</h1>
 
       {/* Perfil */}
-      <div className="card flex items-center gap-4 p-5">
+      <div className="card card-pad flex items-center gap-4">
         <Avatar nome={user?.nome} role={user?.role} size="lg" />
         <div className="min-w-0 flex-1">
           <p className="font-medium text-slate-100">{user?.nome}</p>
@@ -67,7 +67,7 @@ export default function Config() {
       </div>
 
       {/* Notificações */}
-      <div className="card p-5">
+      <div className="card card-pad">
         <div className="flex items-start gap-3">
           <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-brand-500/10 text-brand-300">
             <Icon name="bell" className="h-5 w-5" />
@@ -104,7 +104,7 @@ export default function Config() {
       </div>
 
       {/* Instalar PWA */}
-      <div className="card p-5">
+      <div className="card card-pad">
         <div className="flex items-start gap-3">
           <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-accent-500/10 text-accent-400">
             <Icon name="download" className="h-5 w-5" />

@@ -63,11 +63,11 @@ export default function Usuarios() {
   if (carregando) return <LoadingScreen label="Carregando equipe" />;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 animate-fade-up">
+    <div className="page max-w-3xl animate-fade-up">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white sm:text-2xl">Equipe</h1>
-          <p className="mt-1 text-sm text-slate-500">{usuarios.length} usuário(s)</p>
+          <h1 className="page-title">Equipe</h1>
+          <p className="page-sub">{usuarios.length} usuário(s)</p>
         </div>
         <button onClick={() => setModal({ novo: true, ...VAZIO })} className="btn-primary">
           <Icon name="plus" className="h-4 w-4" /> Novo

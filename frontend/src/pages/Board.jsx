@@ -27,11 +27,11 @@ export default function Board() {
   if (carregando) return <LoadingScreen label="Carregando board" />;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 animate-fade-up">
+    <div className="page max-w-7xl animate-fade-up">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white sm:text-2xl">Board</h1>
-          <p className="mt-1 text-sm text-slate-500">{demandas.length} demanda(s)</p>
+          <h1 className="page-title">Board</h1>
+          <p className="page-sub">{demandas.length} demanda(s)</p>
         </div>
         <div className="inline-flex rounded-xl border border-white/10 bg-white/[0.02] p-1">
           {['board', 'lista'].map((m) => (

@@ -94,7 +94,7 @@ export function Layout({ children }) {
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-6 lg:pb-8">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-4 pb-24 sm:px-6 sm:py-6 lg:pb-8">{children}</main>
       </div>
 
       {/* Navegação inferior mobile */}

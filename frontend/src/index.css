@@ -55,6 +55,17 @@
   ::selection {
     background: rgba(74, 143, 212, 0.4);
   }
+
+  /* Escala mobile-first: base ligeiramente menor no celular para o app
+     não parecer "desktop encolhido". Cresce a partir do sm (>=640px). */
+  html {
+    font-size: 15px;
+  }
+  @media (min-width: 640px) {
+    html {
+      font-size: 16px;
+    }
+  }
 }
 
 @layer components {
@@ -101,6 +112,24 @@
 
   .link-quiet {
     @apply text-slate-400 transition hover:text-slate-100;
+  }
+
+  /* Cabeçalhos padronizados (mobile-first) */
+  .page {
+    @apply mx-auto space-y-4 sm:space-y-6;
+  }
+  .page-title {
+    @apply text-lg font-semibold tracking-tight text-white sm:text-2xl;
+  }
+  .page-sub {
+    @apply mt-0.5 text-[13px] leading-snug text-slate-500 sm:text-sm;
+  }
+  .section-title {
+    @apply text-sm font-semibold text-slate-200;
+  }
+  /* Padding de card padrão: compacto no mobile, confortável no desktop */
+  .card-pad {
+    @apply p-4 sm:p-5;
   }
 
   /* Elevação no hover dos cards */
