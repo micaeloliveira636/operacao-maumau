@@ -19,10 +19,10 @@ const ENV_FALLBACK = {
 };
 
 const DEFAULTS = {
-  sendflow_api_url: 'https://api.sendflow.pro',
+  sendflow_api_url: 'https://sendflow.pro',
   sendflow_releases_path: '/sendapi/releases/:releaseId',
-  sendflow_send_path: '/sendapi/actions',
-  sendflow_notify_path: '/sendapi/messages/text',
+  sendflow_send_path: '/sendapi/actions', // base; vira /send-{tipo}-message/{accountId}
+  sendflow_notify_path: '/sendapi/actions/send-text-message',
   release_ativos1: 'LS061jlmh7U9iJ6v4SUN',
   release_ativos2: '8C9Xo8rsvshj6zNYRYYf',
   release_aquecimento: 'IRy3PxVIfh85kQrus2LN',

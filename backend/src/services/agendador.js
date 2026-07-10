@@ -185,27 +185,41 @@ async function executarAgendamento(demanda, arquivos, userId) {
       }
     }
 
-    const envio = await sendflow.agendarAcao({
-      tipo: item.tipo,
-      releaseId: item.releaseId,
-      accountIds,
-      url: item.url,
-      mensagem: item.legenda,
-      scheduledTo: item.scheduledTo,
-      shippingSpeed: item.shippingSpeed,
-      mentionAll: item.mentionAll,
-    });
+    // O SendFlow envia POR CONTA: uma chamada para cada accountId do release.
+    const actionIds = [];
+    const falhasConta = [];
+    for (const accountId of accountIds) {
+      const envio = await sendflow.agendarAcao({
+        tipo: item.tipo,
+        accountId,
+        releaseId: item.releaseId,
+        url: item.url,
+        mensagem: item.legenda,
+        scheduledTo: item.scheduledTo,
+        shippingSpeed: item.shippingSpeed,
+        mentionAll: item.mentionAll,
+      });
+      if (envio.ok) actionIds.push(envio.actionId || null);
+      else falhasConta.push(`${accountId}: ${envio.error}`);
+    }
 
-    if (!envio.ok) {
-      resultados.erros.push(`${item.campanha} ${item.horario} (${item.variante}): ${envio.error}`);
+    if (actionIds.length === 0) {
+      resultados.erros.push(
+        `${item.campanha} ${item.horario} (${item.variante}): ${falhasConta[0] || 'falha em todas as contas'}`
+      );
       continue;
+    }
+    if (falhasConta.length) {
+      resultados.erros.push(
+        `${item.campanha} ${item.horario}: ${falhasConta.length}/${accountIds.length} conta(s) falharam`
+      );
     }
 
     await db.insert(sendflowSchedules).values({
       demandaId: demanda.id,
       automationJobId: job?.id || null,
       arquivoId: item.arquivoId,
-      sendflowActionId: envio.actionId || null,
+      sendflowActionId: actionIds[0] || null,
       releaseId: item.releaseId,
       accountIds,
       tipoEnvio: item.tipo,
@@ -216,7 +230,7 @@ async function executarAgendamento(demanda, arquivos, userId) {
       velocidade: item.shippingSpeed,
       scheduledTo: new Date(item.scheduledTo),
       status: 'agendado',
-      resultJson: envio.raw || null,
+      resultJson: { actionIds, falhasConta },
     });
     resultados.agendadas += 1;
   }
