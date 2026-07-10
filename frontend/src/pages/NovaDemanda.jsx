@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useFetch } from '../lib/useFetch';
 import { useToast } from '../context/ToastContext';
-import { CATEGORIAS, CAMPANHAS, VELOCIDADES, PRIORIDADES } from '../lib/constants';
+import { CATEGORIAS, CAMPANHAS, VELOCIDADES } from '../lib/constants';
 import { MODELOS, SLOTS, categoriaUsaLink, aplicarSlot } from '../lib/modelos';
 import { Spinner, Select } from '../components/ui';
 import { SuccessOverlay } from '../components/SuccessOverlay';
@@ -25,7 +25,6 @@ export default function NovaDemanda() {
     legenda: '',
     mencionar: false,
     velocidade: 'slow',
-    prioridade: 'normal',
     linkPrincipal: '',
     linkDois: '',
   });
@@ -41,6 +40,7 @@ export default function NovaDemanda() {
   const modelosDaCategoria = MODELOS[form.categoria] || null;
   const modeloSel = modelosDaCategoria?.find((m) => m.id === modeloId) || null;
   const usaLink = categoriaUsaLink(form.categoria);
+  const dataBR = form.dataAlvo ? form.dataAlvo.split('-').reverse().join('/') : '';
 
   // troca de categoria: zera modelo/slot/legenda/links
   function mudarCategoria(cat) {
@@ -133,30 +133,9 @@ export default function NovaDemanda() {
               />
             </div>
             <div>
-              <label className="label">Data alvo</label>
+              <label className="label">Data do envio</label>
               <input type="date" className="input" value={form.dataAlvo} onChange={(e) => set('dataAlvo', e.target.value)} required />
-            </div>
-          </div>
-
-          <div>
-            <label className="label">Prioridade</label>
-            <div className="grid grid-cols-3 gap-2">
-              {PRIORIDADES.map((p) => {
-                const on = form.prioridade === p.value;
-                return (
-                  <button
-                    key={p.value}
-                    type="button"
-                    onClick={() => set('prioridade', p.value)}
-                    className={`rounded-xl border px-3 py-2 text-sm font-medium capitalize transition ${
-                      on ? 'text-white' : 'border-white/10 bg-white/[0.02] text-slate-300 hover:bg-white/[0.05]'
-                    }`}
-                    style={on ? { borderColor: `${p.cor}80`, backgroundColor: `${p.cor}22`, color: p.cor } : undefined}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
+              <p className="mt-1 text-[11px] text-slate-500">Os horários ficam no bloco abaixo.</p>
             </div>
           </div>
 
@@ -230,10 +209,16 @@ export default function NovaDemanda() {
               <Icon name="plus" className="h-3.5 w-3.5" /> Adicionar
             </button>
           </div>
-          <p className="-mt-1 text-xs text-slate-500">A quantidade de arquivos deverá bater com a de horários.</p>
+          <p className="-mt-1 text-xs text-slate-500">
+            Cada mídia vai ao SendFlow na data escolhida no horário abaixo. Coloque um horário por mídia
+            (pode ser um horário alternativo à vontade).
+          </p>
           <div className="space-y-2">
             {horarios.map((h, i) => (
               <div key={i} className="flex items-center gap-2">
+                <span className="hidden shrink-0 text-xs tabular-nums text-slate-500 sm:inline">
+                  {dataBR} às
+                </span>
                 <input type="time" className="input" value={h} onChange={(e) => setHorario(i, e.target.value)} />
                 {horarios.length > 1 && (
                   <button type="button" onClick={() => removeHorario(i)} className="btn-ghost px-2.5">

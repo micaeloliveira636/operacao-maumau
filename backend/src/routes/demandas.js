@@ -90,6 +90,9 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Campos obrigatórios: titulo, categoria, dataAlvo, horarios, atribuidoA' });
     }
 
+    // Auto-gerida (admin criou pra si): já entra em produção, sem aprovação.
+    const autoGerida = atribuidoA === req.user.id;
+
     const [novaDemanda] = await db.insert(demandas).values({
       titulo,
       categoria,
@@ -100,6 +103,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       releaseIds: releaseIds || [],
       atribuidoA,
       criadoPor: req.user.id,
+      status: 'em_andamento',
       legenda: legenda || null,
       mencionar: mencionar || false,
       velocidade: velocidade || 'slow',
@@ -116,8 +120,8 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       ipAddress: req.ip,
     });
 
-    // Notifica o operador atribuído.
-    if (atribuidoA) {
+    // Notifica o operador atribuído (não notifica o admin quando cria pra si).
+    if (atribuidoA && !autoGerida) {
       notificarUsuario({
         userId: atribuidoA,
         titulo: 'Nova demanda atribuída',
@@ -324,9 +328,11 @@ router.get('/:id/agendar/preview', requireAuth, requireAdmin, async (req, res) =
     const { demanda, arquivos: files, erro, msg } = await carregarParaAgendar(req.params.id);
     if (erro) return res.status(erro).json({ error: msg });
     const plano = agendador.montarPlano(demanda, files);
+    const autoGerida = agendador.ehAutoGerida(demanda);
+    const statusOk = demanda.status === 'aprovado' || (autoGerida && demanda.status === 'em_andamento');
     return res.json({
       status: demanda.status,
-      podeAgendar: demanda.status === 'aprovado' && plano.itens.length > 0,
+      podeAgendar: statusOk && plano.itens.length > 0,
       ...plano,
     });
   } catch (err) {
@@ -341,7 +347,10 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
     const { demanda, arquivos: files, erro, msg } = await carregarParaAgendar(req.params.id);
     if (erro) return res.status(erro).json({ error: msg });
 
-    if (!['aprovado', 'agendamento_pendente', 'erro_agendamento'].includes(demanda.status)) {
+    const autoGerida = agendador.ehAutoGerida(demanda);
+    const statusOk = ['aprovado', 'agendamento_pendente', 'erro_agendamento'].includes(demanda.status)
+      || (autoGerida && demanda.status === 'em_andamento');
+    if (!statusOk) {
       return res.status(400).json({ error: 'Demanda precisa estar aprovada para agendar' });
     }
 

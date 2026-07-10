@@ -13,14 +13,6 @@ export const CATEGORIAS = [
 export const CATEGORIA_COR = Object.fromEntries(CATEGORIAS.map((c) => [c.value, c.cor]));
 export const CATEGORIA_LABEL = Object.fromEntries(CATEGORIAS.map((c) => [c.value, c.label]));
 
-// Prioridades (design v3)
-export const PRIORIDADES = [
-  { value: 'urgente', label: 'Urgente', cor: '#CF5C5C' },
-  { value: 'alta', label: 'Alta', cor: '#D4943A' },
-  { value: 'normal', label: 'Normal', cor: '#7A7A86' },
-];
-export const PRIORIDADE_COR = Object.fromEntries(PRIORIDADES.map((p) => [p.value, p.cor]));
-
 // Campanhas conhecidas + release IDs (da conversa da operação)
 export const CAMPANHAS = [
   { nome: 'AQUECIMENTO', releaseId: 'IRy3PxVIfh85kQrus2LN' },

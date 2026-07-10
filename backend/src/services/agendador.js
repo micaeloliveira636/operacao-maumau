@@ -11,6 +11,12 @@ function norm(s) {
   return String(s || '').trim().toUpperCase();
 }
 
+// Demanda "auto-gerida": o admin criou para si mesmo. Nesse caso não há
+// fluxo de aprovação — as mídias já contam como prontas para agendar.
+function ehAutoGerida(demanda) {
+  return Boolean(demanda.atribuidoA && demanda.criadoPor && demanda.atribuidoA === demanda.criadoPor);
+}
+
 // Substitui {link} na legenda; se não houver placeholder, anexa o link.
 function montarLegenda(legenda, link) {
   const base = legenda || '';
@@ -38,11 +44,16 @@ function montarPlano(demanda, arquivos) {
     releaseId: (demanda.releaseIds || [])[i] || null,
   }));
 
+  // Auto-gerida: qualquer mídia não rejeitada já está pronta.
+  // Fluxo com operador: só as mídias aprovadas pelo admin.
+  const autoGerida = ehAutoGerida(demanda);
   const aprovados = arquivos
-    .filter((a) => a.status === 'aprovado')
+    .filter((a) => (autoGerida ? a.status !== 'rejeitado' : a.status === 'aprovado'))
     .sort((a, b) => a.ordem - b.ordem);
 
-  if (aprovados.length === 0) avisos.push('Nenhum arquivo aprovado.');
+  if (aprovados.length === 0) {
+    avisos.push(autoGerida ? 'Nenhuma mídia para agendar.' : 'Nenhum arquivo aprovado.');
+  }
 
   for (const arq of aprovados) {
     if (!arq.horario) {
@@ -251,4 +262,4 @@ async function executarAgendamento(demanda, arquivos, userId) {
   return { ok: sucesso, ...resultados, avisos };
 }
 
-module.exports = { montarPlano, executarAgendamento, montarLegenda, montarScheduledTo };
+module.exports = { montarPlano, executarAgendamento, montarLegenda, montarScheduledTo, ehAutoGerida };

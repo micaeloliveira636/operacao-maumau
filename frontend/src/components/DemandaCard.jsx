@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { StatusBadge, CategoriaTag, PrioridadeTag } from './ui';
+import { StatusBadge, CategoriaTag } from './ui';
 import { Icon } from './Icon';
 import { formatarData } from '../lib/format';
 
@@ -18,9 +18,6 @@ export function DemandaCard({ demanda, compact, index = 0 }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-slate-500">
         <CategoriaTag categoria={demanda.categoria} />
-        {demanda.prioridade && demanda.prioridade !== 'normal' && (
-          <PrioridadeTag prioridade={demanda.prioridade} />
-        )}
         <span className="inline-flex items-center gap-1">
           <Icon name="calendar" className="h-3.5 w-3.5" /> {formatarData(demanda.dataAlvo)}
         </span>

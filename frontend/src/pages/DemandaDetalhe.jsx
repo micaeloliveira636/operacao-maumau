@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { STATUS } from '../lib/constants';
 import { formatarData } from '../lib/format';
-import { StatusBadge, CategoriaTag, PrioridadeTag, LoadingScreen, EmptyState, Modal, Spinner } from '../components/ui';
+import { StatusBadge, CategoriaTag, LoadingScreen, EmptyState, Modal, Spinner } from '../components/ui';
 import { WhatsappPreview } from '../components/WhatsappPreview';
 import { ArquivoUploader } from '../components/ArquivoUploader';
 import { SuccessOverlay } from '../components/SuccessOverlay';
@@ -49,8 +49,13 @@ export default function DemandaDetalhe() {
     carregar();
   }, [carregar]);
 
-  const podeEditar = demanda && EDITAVEL.includes(demanda.status) &&
-    (isAdmin || demanda.atribuidoA === user?.id);
+  // Auto-gerida: admin criou a demanda pra si mesmo — sem fluxo de aprovação.
+  const autoGerida = Boolean(isAdmin && demanda?.criadoPor && demanda.atribuidoA === demanda.criadoPor);
+  const podeEditar = demanda &&
+    (isAdmin || demanda.atribuidoA === user?.id) &&
+    (autoGerida
+      ? !['agendado', 'concluido', 'agendamento_pendente'].includes(demanda.status)
+      : EDITAVEL.includes(demanda.status));
 
   async function mudarStatus(novoStatus, extra = {}) {
     setAcao(true);
@@ -186,6 +191,9 @@ export default function DemandaDetalhe() {
   const totalHorarios = (demanda.horarios || []).length;
   const proximaOrdem = arquivos.length;
   const arquivosAprovados = arquivos.filter((a) => a.status === 'aprovado').length;
+  const midiasUsaveis = autoGerida
+    ? arquivos.filter((a) => a.status !== 'rejeitado').length
+    : arquivosAprovados;
 
   return (
     <div className="page max-w-4xl animate-fade-up">
@@ -201,9 +209,6 @@ export default function DemandaDetalhe() {
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={demanda.status} />
               <CategoriaTag categoria={demanda.categoria} className="px-2 py-1" />
-              {demanda.prioridade && demanda.prioridade !== 'normal' && (
-                <PrioridadeTag prioridade={demanda.prioridade} className="px-2 py-1" />
-              )}
             </div>
             <h1 className="mt-3 page-title">{demanda.titulo}</h1>
             {demanda.descricao && <p className="mt-2 text-sm text-slate-400">{demanda.descricao}</p>}
@@ -244,9 +249,10 @@ export default function DemandaDetalhe() {
       <ActionBar
         demanda={demanda}
         isAdmin={isAdmin}
+        autoGerida={autoGerida}
         acao={acao}
         arquivos={arquivos}
-        arquivosAprovados={arquivosAprovados}
+        midiasUsaveis={midiasUsaveis}
         onEnviar={() => mudarStatus('enviado')}
         onReabrir={() => mudarStatus('em_andamento')}
         onAprovar={() => mudarStatus('aprovado')}
@@ -295,6 +301,7 @@ export default function DemandaDetalhe() {
                 index={i}
                 arquivo={arq}
                 isAdmin={isAdmin}
+                autoGerida={autoGerida}
                 podeDeletar={podeEditar}
                 podeEditarMidia={
                   (isAdmin && !['agendado', 'concluido'].includes(demanda.status)) || podeEditar
@@ -384,8 +391,9 @@ function EditarMidiaModal({ arquivo, legendaDemanda, onClose, onSalvar }) {
     <Modal open={!!arquivo} onClose={onClose} titulo={`Mídia #${arquivo.ordem + 1}`} maxWidth="max-w-lg">
       <div className="space-y-4">
         <div>
-          <label className="label">Horário</label>
+          <label className="label">Horário de envio (alternativo)</label>
           <input type="time" className="input" value={form.horario} onChange={(e) => set('horario', e.target.value)} />
+          <p className="mt-1 text-[11px] text-slate-500">Fica na data da demanda. Deixe vazio para usar o horário padrão.</p>
         </div>
         <div>
           <label className="label">Legenda desta mídia</label>
@@ -418,6 +426,15 @@ function EditarMidiaModal({ arquivo, legendaDemanda, onClose, onSalvar }) {
   );
 }
 
+// Formata o scheduledTo ("2026-07-11T11:20:00-03:00") em "11/07/2026 11:20".
+function fmtQuando(iso, horarioFallback) {
+  if (!iso || typeof iso !== 'string' || !iso.includes('T')) return horarioFallback || '—';
+  const [data, resto] = iso.split('T');
+  const [ano, mes, dia] = data.split('-');
+  const hhmm = (resto || '').slice(0, 5);
+  return `${dia}/${mes}/${ano} ${hhmm}`;
+}
+
 function PreviewAgendamentoModal({ plano, agendando, onClose, onConfirmar }) {
   if (!plano) return null;
   const { itens = [], avisos = [], podeAgendar } = plano;
@@ -440,7 +457,7 @@ function PreviewAgendamentoModal({ plano, agendando, onClose, onConfirmar }) {
         <table className="w-full text-left text-xs">
           <thead className="sticky top-0 bg-ink-800 text-slate-400">
             <tr>
-              <th className="px-2 py-2 font-medium">Horário</th>
+              <th className="px-2 py-2 font-medium">Data e hora</th>
               <th className="px-2 py-2 font-medium">Campanha</th>
               <th className="px-2 py-2 font-medium">Vel.</th>
               <th className="px-2 py-2 font-medium">Menção</th>
@@ -450,7 +467,7 @@ function PreviewAgendamentoModal({ plano, agendando, onClose, onConfirmar }) {
           <tbody className="divide-y divide-white/[0.04]">
             {itens.map((it, i) => (
               <tr key={i} className="text-slate-300">
-                <td className="px-2 py-1.5 tabular-nums">{it.horario}</td>
+                <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-slate-100">{fmtQuando(it.scheduledTo, it.horario)}</td>
                 <td className="px-2 py-1.5">{it.campanha}</td>
                 <td className="px-2 py-1.5">{it.shippingSpeed}</td>
                 <td className="px-2 py-1.5">{it.mentionAll ? 'sim' : 'não'}</td>
@@ -489,12 +506,43 @@ function Info({ icon, label, valor }) {
 }
 
 function ActionBar({
-  demanda, isAdmin, acao, arquivos, arquivosAprovados, agendando,
+  demanda, isAdmin, autoGerida, acao, arquivos, midiasUsaveis, agendando,
   onEnviar, onAprovar, onRejeitar, onAgendar, onGerarPayload, onCancelarAgendamento, onConcluir,
 }) {
   const st = demanda.status;
   const totalHorarios = (demanda.horarios || []).length;
   const btns = [];
+
+  // Fluxo AUTO-GERIDO (admin criou pra si): sem aprovação, agenda direto.
+  if (autoGerida) {
+    if (st === 'agendado') {
+      btns.push(
+        <button key="concluir" onClick={onConcluir} disabled={acao} className="btn-success">
+          <Icon name="check" className="h-4 w-4" /> Concluir
+        </button>,
+        <button key="cancelar" onClick={onCancelarAgendamento} disabled={acao || agendando} className="btn-danger">
+          {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="trash" className="h-4 w-4" />}
+          Cancelar agendamento
+        </button>
+      );
+    } else if (st !== 'concluido') {
+      const podeAgendar = midiasUsaveis > 0;
+      btns.push(
+        <button key="agendar" onClick={onAgendar} disabled={acao || agendando || !podeAgendar} className="btn-primary">
+          {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="send" className="h-4 w-4" />}
+          {st === 'erro_agendamento' ? 'Tentar agendar novamente' : 'Agendar no SendFlow'}
+        </button>
+      );
+      if (!podeAgendar)
+        btns.push(
+          <span key="hint" className="self-center text-xs text-slate-500">
+            Envie ao menos uma mídia para agendar.
+          </span>
+        );
+    }
+    if (btns.length === 0) return null;
+    return <div className="flex flex-wrap gap-2">{btns}</div>;
+  }
 
   if (st === 'em_andamento' || st === 'rejeitado') {
     const pronto = arquivos.length === totalHorarios && arquivos.length > 0;
@@ -531,7 +579,7 @@ function ActionBar({
 
   // Agendar direto no SendFlow (aprovado / pendente / erro)
   if (['aprovado', 'agendamento_pendente', 'erro_agendamento'].includes(st) && isAdmin) {
-    const podeAgendar = arquivosAprovados > 0;
+    const podeAgendar = midiasUsaveis > 0;
     btns.push(
       <button key="agendar" onClick={onAgendar} disabled={acao || agendando || !podeAgendar} className="btn-primary">
         {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="send" className="h-4 w-4" />}
@@ -565,9 +613,12 @@ function ActionBar({
   return <div className="flex flex-wrap gap-2">{btns}</div>;
 }
 
-function ArquivoCard({ arquivo, isAdmin, podeDeletar, podeEditarMidia, statusDemanda, onAprovar, onRejeitar, onDeletar, onEditar, index = 0 }) {
+function ArquivoCard({ arquivo, isAdmin, autoGerida, podeDeletar, podeEditarMidia, statusDemanda, onAprovar, onRejeitar, onDeletar, onEditar, index = 0 }) {
   const isVideo = arquivo.tipo === 'video';
   const temLink = arquivo.linkPrincipal || arquivo.linkDois;
+  // Admin pode aprovar/rejeitar mídia enquanto a demanda está em revisão/aprovada
+  // (fluxo com operador). No fluxo auto-gerido não há moderação de mídia.
+  const podeModerar = isAdmin && !autoGerida && ['enviado', 'aprovado', 'erro_agendamento'].includes(statusDemanda);
   const tone =
     arquivo.status === 'aprovado'
       ? 'border-emerald-500/40'
@@ -613,7 +664,7 @@ function ArquivoCard({ arquivo, isAdmin, podeDeletar, podeEditarMidia, statusDem
               : 'text-slate-400'
           }`}
         >
-          {arquivo.status}
+          {autoGerida ? (arquivo.status === 'rejeitado' ? 'rejeitada' : 'pronta') : arquivo.status}
         </span>
         <div className="flex items-center gap-1">
           {podeEditarMidia && (
@@ -621,7 +672,7 @@ function ArquivoCard({ arquivo, isAdmin, podeDeletar, podeEditarMidia, statusDem
               <Icon name="edit" className="h-4 w-4" />
             </button>
           )}
-          {isAdmin && statusDemanda === 'enviado' && (
+          {podeModerar && (
             <>
               <button onClick={onAprovar} title="Aprovar" className="rounded-md p-1.5 text-emerald-300 hover:bg-emerald-500/10">
                 <Icon name="check" className="h-4 w-4" />

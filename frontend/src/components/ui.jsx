@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  STATUS, TONE_CLASSES, CATEGORIA_COR, CATEGORIA_LABEL, PRIORIDADE_COR,
+  STATUS, TONE_CLASSES, CATEGORIA_COR, CATEGORIA_LABEL,
 } from '../lib/constants';
 import { iniciais } from '../lib/format';
 import { Icon } from './Icon';
@@ -99,18 +99,6 @@ export function CategoriaTag({ categoria, className = '' }) {
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: cor }} />
       {label}
-    </span>
-  );
-}
-
-export function PrioridadeTag({ prioridade, className = '' }) {
-  const cor = PRIORIDADE_COR[prioridade] || '#7A7A86';
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${className}`}
-      style={{ backgroundColor: `${cor}1f`, color: cor }}
-    >
-      {prioridade}
     </span>
   );
 }
