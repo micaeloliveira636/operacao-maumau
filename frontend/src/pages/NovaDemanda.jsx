@@ -4,8 +4,10 @@ import { api } from '../lib/api';
 import { useFetch } from '../lib/useFetch';
 import { useToast } from '../context/ToastContext';
 import { CATEGORIAS, CAMPANHAS, VELOCIDADES, PRIORIDADES } from '../lib/constants';
+import { MODELOS, SLOTS, categoriaUsaLink, aplicarSlot } from '../lib/modelos';
 import { Spinner } from '../components/ui';
 import { SuccessOverlay } from '../components/SuccessOverlay';
+import { WhatsappPreview } from '../components/WhatsappPreview';
 import { Icon } from '../components/Icon';
 
 export default function NovaDemanda() {
@@ -31,8 +33,32 @@ export default function NovaDemanda() {
   const [campanhas, setCampanhas] = useState([]); // nomes selecionados
   const [enviando, setEnviando] = useState(false);
   const [criadaId, setCriadaId] = useState(null); // dispara overlay de sucesso
+  const [modeloId, setModeloId] = useState('');
+  const [slot, setSlot] = useState('');
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const modelosDaCategoria = MODELOS[form.categoria] || null;
+  const modeloSel = modelosDaCategoria?.find((m) => m.id === modeloId) || null;
+  const usaLink = categoriaUsaLink(form.categoria);
+
+  // troca de categoria: zera modelo/slot/legenda/links
+  function mudarCategoria(cat) {
+    setForm((f) => ({ ...f, categoria: cat, legenda: '', linkPrincipal: '', linkDois: '' }));
+    setModeloId('');
+    setSlot('');
+  }
+
+  // aplica o modelo escolhido (com slot) na legenda
+  function aplicarModelo(id, slotAtual = slot) {
+    setModeloId(id);
+    const m = modelosDaCategoria?.find((x) => x.id === id);
+    if (m) set('legenda', aplicarSlot(m.texto, slotAtual));
+  }
+  function mudarSlot(s) {
+    setSlot(s);
+    if (modeloSel) set('legenda', aplicarSlot(modeloSel.texto, s));
+  }
 
   function toggleCampanha(nome) {
     setCampanhas((c) => (c.includes(nome) ? c.filter((x) => x !== nome) : [...c, nome]));
@@ -100,7 +126,7 @@ export default function NovaDemanda() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label">Categoria</label>
-              <select className="input" value={form.categoria} onChange={(e) => set('categoria', e.target.value)}>
+              <select className="input" value={form.categoria} onChange={(e) => mudarCategoria(e.target.value)}>
                 {CATEGORIAS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
@@ -149,6 +175,53 @@ export default function NovaDemanda() {
               placeholder="Orientações para o operador (opcional)" />
           </div>
         </div>
+
+        {/* Modelo de texto (guiado pela categoria) */}
+        {modelosDaCategoria && (
+          <div className="card card-pad space-y-4">
+            <div>
+              <label className="label mb-0 capitalize">Modelo de {form.categoria.replace('-', ' ')}</label>
+              <p className="mb-2 mt-0.5 text-xs text-slate-500">Escolha a variação — o texto já vem pronto.</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {modelosDaCategoria.map((m) => {
+                  const on = modeloId === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => aplicarModelo(m.id)}
+                      className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                        on ? 'border-brand-400/50 bg-brand-500/15 text-white' : 'border-white/10 bg-white/[0.02] text-slate-300 hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        {m.label}
+                      </span>
+                      {on && <Icon name="check" className="h-4 w-4 flex-none text-brand-300" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {modeloSel?.precisaSlot && (
+              <div>
+                <label className="label">Slot</label>
+                <select className="input" value={slot} onChange={(e) => mudarSlot(e.target.value)}>
+                  <option value="">Selecione o slot…</option>
+                  {SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
+
+            {form.legenda && (
+              <div>
+                <label className="label">Prévia (WhatsApp)</label>
+                <WhatsappPreview texto={form.legenda} />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Horários */}
         <div className="card card-pad space-y-3">
@@ -212,21 +285,25 @@ export default function NovaDemanda() {
             </label>
           </div>
           <div className="sm:col-span-2">
-            <label className="label">Legenda padrão</label>
+            <label className="label">{modelosDaCategoria ? 'Texto (editável)' : 'Legenda padrão'}</label>
             <textarea className="input min-h-[70px] resize-y" value={form.legenda}
               onChange={(e) => set('legenda', e.target.value)}
-              placeholder="Legenda padrão. Use {link} onde o link deve entrar (senão ele é anexado no fim)." />
+              placeholder="Texto da mensagem. Use {link} onde o link deve entrar (senão ele é anexado no fim)." />
           </div>
-          <div>
-            <label className="label">Link principal (padrão)</label>
-            <input className="input" value={form.linkPrincipal} onChange={(e) => set('linkPrincipal', e.target.value)}
-              placeholder="https://… (ATIVOS 1 e 2)" />
-          </div>
-          <div>
-            <label className="label">Link 2 (só ATIVOS 1)</label>
-            <input className="input" value={form.linkDois} onChange={(e) => set('linkDois', e.target.value)}
-              placeholder="https://… (2ª mensagem no mesmo horário)" />
-          </div>
+          {usaLink && (
+            <>
+              <div>
+                <label className="label">Link principal</label>
+                <input className="input" value={form.linkPrincipal} onChange={(e) => set('linkPrincipal', e.target.value)}
+                  placeholder="https://… (ATIVOS 1 e 2)" />
+              </div>
+              <div>
+                <label className="label">Link 2 (só ATIVOS 1)</label>
+                <input className="input" value={form.linkDois} onChange={(e) => set('linkDois', e.target.value)}
+                  placeholder="https://… (2ª mensagem no mesmo horário)" />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex justify-end gap-2">
