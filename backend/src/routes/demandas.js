@@ -1,7 +1,8 @@
 const express = require('express');
 const { eq, desc, and } = require('drizzle-orm');
 const { db } = require('../db');
-const { demandas, arquivos } = require('../db/schema');
+const { demandas, arquivos, sendflowSchedules } = require('../db/schema');
+const sendflow = require('../utils/sendflow');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { logActivity } = require('../utils/logger');
 const { notificarUsuario, notificarAdmins } = require('../utils/notify');
@@ -394,6 +395,63 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
       .where(eq(demandas.id, req.params.id))
       .catch(() => {});
     return res.status(500).json({ error: 'Erro interno ao agendar' });
+  }
+});
+
+// POST /demandas/:id/cancelar-agendamento — apaga as ações no SendFlow e volta pra aprovado
+router.post('/:id/cancelar-agendamento', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const [demanda] = await db.select().from(demandas).where(eq(demandas.id, req.params.id)).limit(1);
+    if (!demanda) return res.status(404).json({ error: 'Demanda não encontrada' });
+
+    const schedules = await db
+      .select()
+      .from(sendflowSchedules)
+      .where(eq(sendflowSchedules.demandaId, demanda.id));
+
+    const ativos = schedules.filter((s) => s.status !== 'cancelado');
+    // Reúne todos os actionIds (um por conta) de cada schedule
+    const actionIds = [];
+    for (const s of ativos) {
+      const doResult = Array.isArray(s.resultJson?.actionIds) ? s.resultJson.actionIds : [];
+      for (const a of doResult) if (a) actionIds.push(a);
+      if (!doResult.length && s.sendflowActionId) actionIds.push(s.sendflowActionId);
+    }
+
+    if (actionIds.length === 0) {
+      return res.status(400).json({ error: 'Nenhuma ação agendada para cancelar' });
+    }
+
+    const del = await sendflow.deletarAcoes(actionIds);
+    if (!del.ok) {
+      return res.status(400).json({ error: `SendFlow: ${del.error}` });
+    }
+
+    // marca schedules como cancelados e volta a demanda para aprovado
+    for (const s of ativos) {
+      await db
+        .update(sendflowSchedules)
+        .set({ status: 'cancelado' })
+        .where(eq(sendflowSchedules.id, s.id));
+    }
+    const [updated] = await db
+      .update(demandas)
+      .set({ status: 'aprovado', updatedAt: new Date() })
+      .where(eq(demandas.id, demanda.id))
+      .returning();
+
+    await logActivity({
+      demandaId: demanda.id,
+      userId: req.user.id,
+      action: 'agendamento.cancelado',
+      metadata: { acoesDeletadas: actionIds.length },
+      ipAddress: req.ip,
+    });
+
+    return res.json({ demanda: updated, deletadas: actionIds.length });
+  } catch (err) {
+    console.error('Erro ao cancelar agendamento:', err);
+    return res.status(500).json({ error: 'Erro interno' });
   }
 });
 

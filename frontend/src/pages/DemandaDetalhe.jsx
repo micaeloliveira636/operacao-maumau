@@ -155,6 +155,20 @@ export default function DemandaDetalhe() {
     }
   }
 
+  async function cancelarAgendamento() {
+    if (!confirm('Cancelar o agendamento? As ações serão apagadas no SendFlow.')) return;
+    setAgendando(true);
+    try {
+      const { demanda: upd, deletadas } = await api.post(`/demandas/${id}/cancelar-agendamento`);
+      setDemanda(upd);
+      toast.sucesso(`${deletadas} ação(ões) apagada(s) no SendFlow`);
+    } catch (err) {
+      toast.erro(err.message || 'Erro ao cancelar');
+    } finally {
+      setAgendando(false);
+    }
+  }
+
   async function deletarDemanda() {
     if (!confirm('Deletar esta demanda e seus arquivos?')) return;
     try {
@@ -240,6 +254,7 @@ export default function DemandaDetalhe() {
         onAgendar={abrirPreview}
         agendando={agendando}
         onGerarPayload={gerarPayload}
+        onCancelarAgendamento={cancelarAgendamento}
         onConcluir={() => mudarStatus('concluido')}
       />
 
@@ -475,7 +490,7 @@ function Info({ icon, label, valor }) {
 
 function ActionBar({
   demanda, isAdmin, acao, arquivos, arquivosAprovados, agendando,
-  onEnviar, onAprovar, onRejeitar, onAgendar, onGerarPayload, onConcluir,
+  onEnviar, onAprovar, onRejeitar, onAgendar, onGerarPayload, onCancelarAgendamento, onConcluir,
 }) {
   const st = demanda.status;
   const totalHorarios = (demanda.horarios || []).length;
@@ -538,6 +553,10 @@ function ActionBar({
     btns.push(
       <button key="concluir" onClick={onConcluir} disabled={acao} className="btn-success">
         <Icon name="check" className="h-4 w-4" /> Concluir
+      </button>,
+      <button key="cancelar" onClick={onCancelarAgendamento} disabled={acao || agendando} className="btn-danger">
+        {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="trash" className="h-4 w-4" />}
+        Cancelar agendamento
       </button>
     );
   }
