@@ -27,6 +27,9 @@ export default function DemandaDetalhe() {
   const [motivo, setMotivo] = useState('');
   const [payload, setPayload] = useState(null);
   const [overlay, setOverlay] = useState(null); // mensagem do overlay de sucesso
+  const [editArq, setEditArq] = useState(null); // arquivo sendo editado
+  const [plano, setPlano] = useState(null); // preview do agendamento
+  const [agendando, setAgendando] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -108,6 +111,47 @@ export default function DemandaDetalhe() {
       toast.sucesso('Payload copiado — cole no Claude para agendar');
     } catch {
       toast.erro('Não foi possível copiar');
+    }
+  }
+
+  async function salvarArquivo(patch) {
+    try {
+      const { arquivo } = await api.patch(`/arquivos/${editArq.id}`, patch);
+      setArquivos((a) => a.map((x) => (x.id === arquivo.id ? arquivo : x)));
+      setEditArq(null);
+      toast.sucesso('Mídia atualizada');
+    } catch (err) {
+      toast.erro(err.message);
+    }
+  }
+
+  async function abrirPreview() {
+    setAgendando(true);
+    try {
+      const data = await api.get(`/demandas/${id}/agendar/preview`);
+      setPlano(data);
+    } catch (err) {
+      toast.erro(err.message || 'Erro ao montar o plano');
+    } finally {
+      setAgendando(false);
+    }
+  }
+
+  async function confirmarAgendamento() {
+    setAgendando(true);
+    try {
+      const { demanda: upd, resultado } = await api.post(`/demandas/${id}/agendar`);
+      setDemanda(upd);
+      setPlano(null);
+      if (resultado?.ok) {
+        setOverlay(`${resultado.agendadas} mensagem(ns) agendada(s)`);
+      } else {
+        toast.erro(`Falhou: ${(resultado?.erros || ['erro']).slice(0, 2).join(' | ')}`);
+      }
+    } catch (err) {
+      toast.erro(err.message || 'Erro ao agendar');
+    } finally {
+      setAgendando(false);
     }
   }
 
@@ -193,10 +237,9 @@ export default function DemandaDetalhe() {
         onReabrir={() => mudarStatus('em_andamento')}
         onAprovar={() => mudarStatus('aprovado')}
         onRejeitar={() => setModalRejeitar(true)}
-        onAgendarPendente={() => mudarStatus('agendamento_pendente')}
+        onAgendar={abrirPreview}
+        agendando={agendando}
         onGerarPayload={gerarPayload}
-        onAgendado={() => mudarStatus('agendado')}
-        onErro={() => mudarStatus('erro_agendamento')}
         onConcluir={() => mudarStatus('concluido')}
       />
 
@@ -238,10 +281,14 @@ export default function DemandaDetalhe() {
                 arquivo={arq}
                 isAdmin={isAdmin}
                 podeDeletar={podeEditar}
+                podeEditarMidia={
+                  (isAdmin && !['agendado', 'concluido'].includes(demanda.status)) || podeEditar
+                }
                 statusDemanda={demanda.status}
                 onAprovar={() => moderarArquivo(arq.id, 'aprovar')}
                 onRejeitar={() => moderarArquivo(arq.id, 'rejeitar')}
                 onDeletar={() => deletarArquivo(arq.id)}
+                onEditar={() => setEditArq(arq)}
               />
             ))}
           </div>
@@ -283,7 +330,135 @@ export default function DemandaDetalhe() {
           </button>
         </div>
       </Modal>
+
+      {/* Modal: editar mídia (legenda + links + horário) */}
+      <EditarMidiaModal
+        arquivo={editArq}
+        legendaDemanda={demanda.legenda}
+        onClose={() => setEditArq(null)}
+        onSalvar={salvarArquivo}
+      />
+
+      {/* Modal: preview do plano de agendamento */}
+      <PreviewAgendamentoModal
+        plano={plano}
+        agendando={agendando}
+        onClose={() => setPlano(null)}
+        onConfirmar={confirmarAgendamento}
+      />
     </div>
+  );
+}
+
+function EditarMidiaModal({ arquivo, legendaDemanda, onClose, onSalvar }) {
+  const [form, setForm] = useState(null);
+  useEffect(() => {
+    if (arquivo)
+      setForm({
+        legendaCustom: arquivo.legendaCustom || '',
+        linkPrincipal: arquivo.linkPrincipal || '',
+        linkDois: arquivo.linkDois || '',
+        horario: arquivo.horario || '',
+      });
+  }, [arquivo]);
+
+  if (!arquivo || !form) return null;
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  return (
+    <Modal open={!!arquivo} onClose={onClose} titulo={`Mídia #${arquivo.ordem + 1}`} maxWidth="max-w-lg">
+      <div className="space-y-4">
+        <div>
+          <label className="label">Horário</label>
+          <input type="time" className="input" value={form.horario} onChange={(e) => set('horario', e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Legenda desta mídia</label>
+          <textarea
+            className="input min-h-[100px] resize-y"
+            value={form.legendaCustom}
+            onChange={(e) => set('legendaCustom', e.target.value)}
+            placeholder={legendaDemanda ? `Padrão: ${legendaDemanda.slice(0, 60)}…` : 'Legenda específica (use {link})'}
+          />
+          <p className="mt-1 text-[11px] text-slate-500">Vazio = usa a legenda padrão da demanda. Use <code>{'{link}'}</code> onde o link entra.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label">Link principal</label>
+            <input className="input" value={form.linkPrincipal} onChange={(e) => set('linkPrincipal', e.target.value)} placeholder="https://…" />
+          </div>
+          <div>
+            <label className="label">Link 2 (ATIVOS 1)</label>
+            <input className="input" value={form.linkDois} onChange={(e) => set('linkDois', e.target.value)} placeholder="https://…" />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-ghost">Cancelar</button>
+          <button onClick={() => onSalvar(form)} className="btn-primary">
+            <Icon name="check" className="h-4 w-4" /> Salvar
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function PreviewAgendamentoModal({ plano, agendando, onClose, onConfirmar }) {
+  if (!plano) return null;
+  const { itens = [], avisos = [], podeAgendar } = plano;
+  return (
+    <Modal open={!!plano} onClose={onClose} titulo="Confirmar agendamento" maxWidth="max-w-2xl">
+      <p className="mb-3 text-sm text-slate-400">
+        O painel vai disparar <strong className="text-slate-200">{itens.length}</strong> mensagem(ns) no SendFlow
+        (uma chamada por linha), buscando os accountIds na hora.
+      </p>
+
+      {avisos.length > 0 && (
+        <div className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-200/90">
+          {avisos.map((a, i) => (
+            <div key={i}>• {a}</div>
+          ))}
+        </div>
+      )}
+
+      <div className="max-h-72 overflow-auto rounded-xl border border-white/5">
+        <table className="w-full text-left text-xs">
+          <thead className="sticky top-0 bg-ink-800 text-slate-400">
+            <tr>
+              <th className="px-2 py-2 font-medium">Horário</th>
+              <th className="px-2 py-2 font-medium">Campanha</th>
+              <th className="px-2 py-2 font-medium">Vel.</th>
+              <th className="px-2 py-2 font-medium">Menção</th>
+              <th className="px-2 py-2 font-medium">Var.</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.04]">
+            {itens.map((it, i) => (
+              <tr key={i} className="text-slate-300">
+                <td className="px-2 py-1.5 tabular-nums">{it.horario}</td>
+                <td className="px-2 py-1.5">{it.campanha}</td>
+                <td className="px-2 py-1.5">{it.shippingSpeed}</td>
+                <td className="px-2 py-1.5">{it.mentionAll ? 'sim' : 'não'}</td>
+                <td className="px-2 py-1.5">{it.variante === 'link2' ? 'link 2' : '—'}</td>
+              </tr>
+            ))}
+            {itens.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-2 py-6 text-center text-slate-500">Nada a agendar.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onClose} className="btn-ghost">Cancelar</button>
+        <button onClick={onConfirmar} disabled={agendando || !podeAgendar || itens.length === 0} className="btn-primary">
+          {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="send" className="h-4 w-4" />}
+          Disparar {itens.length} envio(s)
+        </button>
+      </div>
+    </Modal>
   );
 }
 
@@ -299,9 +474,8 @@ function Info({ icon, label, valor }) {
 }
 
 function ActionBar({
-  demanda, isAdmin, acao, arquivos, arquivosAprovados,
-  onEnviar, onReabrir, onAprovar, onRejeitar, onAgendarPendente,
-  onGerarPayload, onAgendado, onErro, onConcluir,
+  demanda, isAdmin, acao, arquivos, arquivosAprovados, agendando,
+  onEnviar, onAprovar, onRejeitar, onAgendar, onGerarPayload, onConcluir,
 }) {
   const st = demanda.status;
   const totalHorarios = (demanda.horarios || []).length;
@@ -340,37 +514,24 @@ function ActionBar({
     );
   }
 
-  if (st === 'aprovado' && isAdmin) {
+  // Agendar direto no SendFlow (aprovado / pendente / erro)
+  if (['aprovado', 'agendamento_pendente', 'erro_agendamento'].includes(st) && isAdmin) {
+    const podeAgendar = arquivosAprovados > 0;
     btns.push(
-      <button key="payload" onClick={onGerarPayload} disabled={acao} className="btn-primary">
-        <Icon name="sparkle" className="h-4 w-4" /> Gerar payload de agendamento
+      <button key="agendar" onClick={onAgendar} disabled={acao || agendando || !podeAgendar} className="btn-primary">
+        {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="send" className="h-4 w-4" />}
+        {st === 'erro_agendamento' ? 'Tentar agendar novamente' : 'Agendar no SendFlow'}
       </button>,
-      <button key="pendente" onClick={onAgendarPendente} disabled={acao} className="btn-ghost">
-        Marcar agendamento pendente
+      <button key="payload" onClick={onGerarPayload} disabled={acao} className="btn-ghost">
+        <Icon name="sparkle" className="h-4 w-4" /> Payload p/ Claude
       </button>
     );
-  }
-
-  if (st === 'agendamento_pendente' && isAdmin) {
-    btns.push(
-      <button key="payload2" onClick={onGerarPayload} disabled={acao} className="btn-ghost">
-        <Icon name="sparkle" className="h-4 w-4" /> Ver payload
-      </button>,
-      <button key="agendado" onClick={onAgendado} disabled={acao} className="btn-success">
-        <Icon name="check" className="h-4 w-4" /> Confirmar agendado
-      </button>,
-      <button key="erro" onClick={onErro} disabled={acao} className="btn-danger">
-        Erro no agendamento
-      </button>
-    );
-  }
-
-  if (st === 'erro_agendamento' && isAdmin) {
-    btns.push(
-      <button key="retry" onClick={onAgendarPendente} disabled={acao} className="btn-primary">
-        <Icon name="refresh" className="h-4 w-4" /> Tentar novamente
-      </button>
-    );
+    if (!podeAgendar)
+      btns.push(
+        <span key="warn" className="self-center text-xs text-amber-300/80">
+          Aprove ao menos uma mídia para agendar.
+        </span>
+      );
   }
 
   if (st === 'agendado' && isAdmin) {
@@ -381,20 +542,13 @@ function ActionBar({
     );
   }
 
-  if (st === 'aprovado' && isAdmin && arquivosAprovados === 0) {
-    btns.push(
-      <span key="warn" className="self-center text-xs text-amber-300/80">
-        Aprove ao menos um arquivo para gerar o payload.
-      </span>
-    );
-  }
-
   if (btns.length === 0) return null;
   return <div className="flex flex-wrap gap-2">{btns}</div>;
 }
 
-function ArquivoCard({ arquivo, isAdmin, podeDeletar, statusDemanda, onAprovar, onRejeitar, onDeletar, index = 0 }) {
+function ArquivoCard({ arquivo, isAdmin, podeDeletar, podeEditarMidia, statusDemanda, onAprovar, onRejeitar, onDeletar, onEditar, index = 0 }) {
   const isVideo = arquivo.tipo === 'video';
+  const temLink = arquivo.linkPrincipal || arquivo.linkDois;
   const tone =
     arquivo.status === 'aprovado'
       ? 'border-emerald-500/40'
@@ -418,9 +572,16 @@ function ArquivoCard({ arquivo, isAdmin, podeDeletar, statusDemanda, onAprovar, 
             #{arquivo.ordem + 1}{arquivo.horario ? ` · ${arquivo.horario}` : ''}
           </span>
         </div>
-        <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-white backdrop-blur">
-          <Icon name={isVideo ? 'video' : 'image'} className="h-3.5 w-3.5" />
-        </span>
+        <div className="absolute right-2 top-2 flex items-center gap-1">
+          {temLink && (
+            <span className="flex h-6 items-center rounded-md bg-brand-500/80 px-1.5 text-[10px] font-medium text-white backdrop-blur" title="Link definido">
+              link{arquivo.linkDois ? ' ×2' : ''}
+            </span>
+          )}
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-white backdrop-blur">
+            <Icon name={isVideo ? 'video' : 'image'} className="h-3.5 w-3.5" />
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-1 p-2">
@@ -436,6 +597,11 @@ function ArquivoCard({ arquivo, isAdmin, podeDeletar, statusDemanda, onAprovar, 
           {arquivo.status}
         </span>
         <div className="flex items-center gap-1">
+          {podeEditarMidia && (
+            <button onClick={onEditar} title="Editar legenda/links" className="rounded-md p-1.5 text-slate-400 hover:bg-white/5 hover:text-brand-300">
+              <Icon name="edit" className="h-4 w-4" />
+            </button>
+          )}
           {isAdmin && statusDemanda === 'enviado' && (
             <>
               <button onClick={onAprovar} title="Aprovar" className="rounded-md p-1.5 text-emerald-300 hover:bg-emerald-500/10">

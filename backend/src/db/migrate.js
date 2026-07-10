@@ -168,8 +168,28 @@ async function migrate() {
     )
   `;
 
+  await client`
+    CREATE TABLE IF NOT EXISTS configuracoes (
+      chave VARCHAR(60) PRIMARY KEY,
+      valor TEXT,
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
   // Migrações incrementais (para bancos já existentes)
   await client`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS prioridade VARCHAR(10) DEFAULT 'normal'`;
+  await client`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS link_principal TEXT`;
+  await client`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS link_dois TEXT`;
+  await client`ALTER TABLE arquivos ADD COLUMN IF NOT EXISTS link_principal TEXT`;
+  await client`ALTER TABLE arquivos ADD COLUMN IF NOT EXISTS link_dois TEXT`;
+  await client`ALTER TABLE sendflow_schedules ADD COLUMN IF NOT EXISTS variante VARCHAR(20) DEFAULT 'principal'`;
+  // Recria o índice de idempotência incluindo a variante (2 links no mesmo horário)
+  await client`DROP INDEX IF EXISTS idx_unique_schedule`;
+  await client`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_schedule
+    ON sendflow_schedules(demanda_id, arquivo_id, scheduled_to, release_id, variante)
+    WHERE status != 'cancelado'
+  `;
 
   // Índices
   await client`CREATE INDEX IF NOT EXISTS idx_demandas_status ON demandas(status)`;

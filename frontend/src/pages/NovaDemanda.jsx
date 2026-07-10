@@ -24,6 +24,8 @@ export default function NovaDemanda() {
     mencionar: false,
     velocidade: 'slow',
     prioridade: 'normal',
+    linkPrincipal: '',
+    linkDois: '',
   });
   const [horarios, setHorarios] = useState(['']);
   const [campanhas, setCampanhas] = useState([]); // nomes selecionados
@@ -213,7 +215,17 @@ export default function NovaDemanda() {
             <label className="label">Legenda padrão</label>
             <textarea className="input min-h-[70px] resize-y" value={form.legenda}
               onChange={(e) => set('legenda', e.target.value)}
-              placeholder="Legenda aplicada aos arquivos (pode ser sobrescrita por arquivo)" />
+              placeholder="Legenda padrão. Use {link} onde o link deve entrar (senão ele é anexado no fim)." />
+          </div>
+          <div>
+            <label className="label">Link principal (padrão)</label>
+            <input className="input" value={form.linkPrincipal} onChange={(e) => set('linkPrincipal', e.target.value)}
+              placeholder="https://… (ATIVOS 1 e 2)" />
+          </div>
+          <div>
+            <label className="label">Link 2 (só ATIVOS 1)</label>
+            <input className="input" value={form.linkDois} onChange={(e) => set('linkDois', e.target.value)}
+              placeholder="https://… (2ª mensagem no mesmo horário)" />
           </div>
         </div>
 

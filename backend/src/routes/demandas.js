@@ -5,6 +5,7 @@ const { demandas, arquivos } = require('../db/schema');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { logActivity } = require('../utils/logger');
 const { notificarUsuario, notificarAdmins } = require('../utils/notify');
+const agendador = require('../services/agendador');
 
 const router = express.Router();
 
@@ -81,6 +82,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       titulo, categoria, descricao, dataAlvo, horarios,
       campanhasDestino, releaseIds, atribuidoA,
       legenda, mencionar, velocidade, prioridade,
+      linkPrincipal, linkDois,
     } = req.body;
 
     if (!titulo || !categoria || !dataAlvo || !horarios || !atribuidoA) {
@@ -101,6 +103,8 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       mencionar: mencionar || false,
       velocidade: velocidade || 'slow',
       prioridade: prioridade || 'normal',
+      linkPrincipal: linkPrincipal || null,
+      linkDois: linkDois || null,
     }).returning();
 
     await logActivity({
@@ -152,6 +156,7 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
       'titulo', 'categoria', 'descricao', 'dataAlvo', 'horarios',
       'campanhasDestino', 'releaseIds', 'atribuidoA',
       'legenda', 'mencionar', 'velocidade', 'prioridade',
+      'linkPrincipal', 'linkDois',
     ];
 
     const updates = {};
@@ -300,7 +305,99 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
   }
 });
 
-// GET /demandas/:id/agendamento-payload — payload para Claude
+// Helper: carrega demanda + arquivos (admin, aprovada)
+async function carregarParaAgendar(id) {
+  const [demanda] = await db.select().from(demandas).where(eq(demandas.id, id)).limit(1);
+  if (!demanda) return { erro: 404, msg: 'Demanda não encontrada' };
+  const files = await db
+    .select()
+    .from(arquivos)
+    .where(eq(arquivos.demandaId, demanda.id))
+    .orderBy(arquivos.ordem);
+  return { demanda, arquivos: files };
+}
+
+// GET /demandas/:id/agendar/preview — mostra o plano (regras aplicadas) sem enviar
+router.get('/:id/agendar/preview', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { demanda, arquivos: files, erro, msg } = await carregarParaAgendar(req.params.id);
+    if (erro) return res.status(erro).json({ error: msg });
+    const plano = agendador.montarPlano(demanda, files);
+    return res.json({
+      status: demanda.status,
+      podeAgendar: demanda.status === 'aprovado' && plano.itens.length > 0,
+      ...plano,
+    });
+  } catch (err) {
+    console.error('Erro no preview de agendamento:', err);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+// POST /demandas/:id/agendar — executa o agendamento direto no SendFlow
+router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { demanda, arquivos: files, erro, msg } = await carregarParaAgendar(req.params.id);
+    if (erro) return res.status(erro).json({ error: msg });
+
+    if (!['aprovado', 'agendamento_pendente', 'erro_agendamento'].includes(demanda.status)) {
+      return res.status(400).json({ error: 'Demanda precisa estar aprovada para agendar' });
+    }
+
+    // marca como em processamento
+    await db
+      .update(demandas)
+      .set({ status: 'agendamento_pendente', updatedAt: new Date() })
+      .where(eq(demandas.id, demanda.id));
+
+    const resultado = await agendador.executarAgendamento(
+      { ...demanda, status: 'agendamento_pendente' },
+      files,
+      req.user.id
+    );
+
+    const novoStatus = resultado.ok ? 'agendado' : 'erro_agendamento';
+    const [updated] = await db
+      .update(demandas)
+      .set({ status: novoStatus, updatedAt: new Date() })
+      .where(eq(demandas.id, demanda.id))
+      .returning();
+
+    await logActivity({
+      demandaId: demanda.id,
+      userId: req.user.id,
+      action: resultado.ok ? 'agendamento.executado' : 'agendamento.erro',
+      metadata: {
+        agendadas: resultado.agendadas,
+        puladas: resultado.puladas,
+        erros: resultado.erros,
+      },
+      ipAddress: req.ip,
+    });
+
+    if (resultado.ok) {
+      notificarAdmins({
+        titulo: 'Demanda agendada',
+        mensagem: `${demanda.titulo}: ${resultado.agendadas} mensagem(ns) agendada(s) no SendFlow.`,
+        tipo: 'sucesso',
+        demandaId: demanda.id,
+        url: `/demandas/${demanda.id}`,
+      });
+    }
+
+    return res.status(resultado.ok ? 200 : 400).json({ demanda: updated, resultado });
+  } catch (err) {
+    console.error('Erro ao agendar:', err);
+    await db
+      .update(demandas)
+      .set({ status: 'erro_agendamento', updatedAt: new Date() })
+      .where(eq(demandas.id, req.params.id))
+      .catch(() => {});
+    return res.status(500).json({ error: 'Erro interno ao agendar' });
+  }
+});
+
+// GET /demandas/:id/agendamento-payload — payload para Claude (legado/backup)
 router.get('/:id/agendamento-payload', requireAuth, requireAdmin, async (req, res) => {
   try {
     const [demanda] = await db

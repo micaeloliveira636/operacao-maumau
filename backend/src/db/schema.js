@@ -28,6 +28,8 @@ const demandas = pgTable('demandas', {
   mencionar: boolean('mencionar').default(false),
   velocidade: varchar('velocidade', { length: 10 }).default('slow'),
   prioridade: varchar('prioridade', { length: 10 }).default('normal'), // urgente | alta | normal
+  linkPrincipal: text('link_principal'), // link padrão (ATIVOS 1 e 2)
+  linkDois: text('link_dois'), // 2º link (só ATIVOS 1: duas mensagens)
   motivoRejeicao: text('motivo_rejeicao'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -44,6 +46,8 @@ const arquivos = pgTable('arquivos', {
   ordem: integer('ordem').notNull(),
   horario: varchar('horario', { length: 5 }),
   legendaCustom: text('legenda_custom'),
+  linkPrincipal: text('link_principal'), // sobrescreve o link da demanda
+  linkDois: text('link_dois'), // 2º link (ATIVOS 1)
   status: varchar('status', { length: 20 }).default('pendente'),
   uploadedBy: uuid('uploaded_by').references(() => usuarios.id),
   uploadedAt: timestamp('uploaded_at').defaultNow(),
@@ -75,6 +79,7 @@ const sendflowSchedules = pgTable('sendflow_schedules', {
   tipoEnvio: varchar('tipo_envio', { length: 10 }).notNull(), // text | image | video
   mensagemOuUrl: text('mensagem_ou_url').notNull(),
   legenda: text('legenda'),
+  variante: varchar('variante', { length: 20 }).default('principal'), // principal | link2
   mencionar: boolean('mencionar').default(false),
   velocidade: varchar('velocidade', { length: 10 }).default('slow'),
   scheduledTo: timestamp('scheduled_to').notNull(),
@@ -122,6 +127,12 @@ const pushSubscriptions = pgTable('push_subscriptions', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+const configuracoes = pgTable('configuracoes', {
+  chave: varchar('chave', { length: 60 }).primaryKey(),
+  valor: text('valor'),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 const notificacoes = pgTable('notificacoes', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => usuarios.id, { onDelete: 'cascade' }).notNull(),
@@ -145,4 +156,5 @@ module.exports = {
   refreshTokens,
   pushSubscriptions,
   notificacoes,
+  configuracoes,
 };

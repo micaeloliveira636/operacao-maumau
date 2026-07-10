@@ -154,6 +154,66 @@ router.get('/demanda/:demandaId', requireAuth, carregarDemanda, async (req, res)
   }
 });
 
+// PATCH /arquivos/:id — edita legenda/links/horário de uma mídia
+router.patch('/:id', requireAuth, async (req, res) => {
+  try {
+    const [arquivo] = await db
+      .select()
+      .from(arquivos)
+      .where(eq(arquivos.id, req.params.id))
+      .limit(1);
+    if (!arquivo) return res.status(404).json({ error: 'Arquivo não encontrado' });
+
+    // permissão via demanda
+    const [demanda] = await db
+      .select()
+      .from(demandas)
+      .where(eq(demandas.id, arquivo.demandaId))
+      .limit(1);
+
+    const ehDono = demanda && demanda.atribuidoA === req.user.id;
+    if (req.user.role !== 'admin' && !ehDono) {
+      return res.status(403).json({ error: 'Sem permissão' });
+    }
+    // operador não mexe depois de aprovado/agendado; admin pode ajustar legenda/link até agendar
+    if (['agendado', 'concluido'].includes(demanda?.status)) {
+      return res.status(400).json({ error: 'Demanda já agendada/concluída' });
+    }
+    if (req.user.role !== 'admin' && ESTADOS_TRAVADOS.includes(demanda?.status)) {
+      return res.status(400).json({ error: 'Demanda travada para o operador neste status' });
+    }
+
+    const updates = {};
+    if (req.body.legendaCustom !== undefined) updates.legendaCustom = req.body.legendaCustom || null;
+    if (req.body.linkPrincipal !== undefined) updates.linkPrincipal = req.body.linkPrincipal || null;
+    if (req.body.linkDois !== undefined) updates.linkDois = req.body.linkDois || null;
+    if (req.body.horario !== undefined) updates.horario = req.body.horario || null;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'Nada para atualizar' });
+    }
+
+    const [updated] = await db
+      .update(arquivos)
+      .set(updates)
+      .where(eq(arquivos.id, req.params.id))
+      .returning();
+
+    await logActivity({
+      demandaId: arquivo.demandaId,
+      userId: req.user.id,
+      action: 'arquivo.editado',
+      metadata: { arquivoId: arquivo.id, campos: Object.keys(updates) },
+      ipAddress: req.ip,
+    });
+
+    return res.json({ arquivo: updated });
+  } catch (err) {
+    console.error('Erro ao editar arquivo:', err);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
 // PATCH /arquivos/:id/aprovar — admin aprova um arquivo
 router.patch('/:id/aprovar', requireAuth, requireAdmin, async (req, res) => {
   try {

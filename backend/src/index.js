@@ -12,6 +12,7 @@ const usuariosRoutes = require('./routes/usuarios');
 const arquivosRoutes = require('./routes/arquivos');
 const copysRoutes = require('./routes/copys');
 const notificacoesRoutes = require('./routes/notificacoes');
+const configuracoesRoutes = require('./routes/configuracoes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -61,6 +62,7 @@ app.use('/usuarios', usuariosRoutes);
 app.use('/arquivos', arquivosRoutes);
 app.use('/copys', copysRoutes);
 app.use('/notificacoes', notificacoesRoutes);
+app.use('/configuracoes', configuracoesRoutes);
 
 // 404
 app.use((req, res) => {
