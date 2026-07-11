@@ -16,6 +16,20 @@ const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
 
+// Opções do cookie de refresh. Em produção (cross-site onrender.com) precisa
+// SameSite=None + Secure; em dev (localhost) usa Lax. Path /auth cobre
+// /auth/refresh e /auth/logout.
+function cookieOpts() {
+  const prod = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: prod,
+    sameSite: prod ? 'none' : 'lax',
+    maxAge: REFRESH_TOKEN_EXPIRY_MS,
+    path: '/auth',
+  };
+}
+
 // Rate limit específico para login: 5 tentativas por 15 min
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -65,14 +79,11 @@ router.post('/login', loginLimiter, async (req, res) => {
       expiresAt: refreshExpiry,
     });
 
-    // Refresh token no cookie httpOnly
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: REFRESH_TOKEN_EXPIRY_MS,
-      path: '/auth/refresh',
-    });
+    // Refresh token no cookie httpOnly.
+    // Front e back ficam em subdomínios diferentes do onrender.com (que está na
+    // Public Suffix List = cross-site), então em produção precisa SameSite=None
+    // + Secure, senão o cookie não é enviado e a sessão cai toda hora.
+    res.cookie('refresh_token', refreshToken, cookieOpts());
 
     await logActivity({
       userId: user.id,
@@ -142,13 +153,7 @@ router.post('/refresh', async (req, res) => {
 
     const accessToken = generateAccessToken(user);
 
-    res.cookie('refresh_token', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: REFRESH_TOKEN_EXPIRY_MS,
-      path: '/auth/refresh',
-    });
+    res.cookie('refresh_token', newRefreshToken, cookieOpts());
 
     return res.json({
       token: accessToken,
@@ -169,7 +174,7 @@ router.post('/logout', requireAuth, async (req, res) => {
       await db.delete(refreshTokens).where(eq(refreshTokens.token, token));
     }
 
-    res.clearCookie('refresh_token', { path: '/auth/refresh' });
+    res.clearCookie('refresh_token', { path: '/auth', sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', secure: process.env.NODE_ENV === 'production' });
 
     await logActivity({
       userId: req.user.id,

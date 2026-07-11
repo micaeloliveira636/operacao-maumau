@@ -222,7 +222,7 @@ Família, minha equipe está fazendo as primeiras validações do dia e logo men
     label: '11h20 — Operação iniciada (iniciou)',
     texto: `*🚨 OPERAÇÃO INICIADA* ✅
 
-📢 Meu time iniciou as validações e daqui a pouco eu trago as atualizações!`,
+👨‍💻 Meu time iniciou as validações e daqui a pouco eu trago as atualizações!`,
   },
   {
     id: 'aq-1120-v5-segunda',
@@ -245,7 +245,7 @@ Logo menos eu retorno aqui!`,
     label: '11h20 — Operação iniciada (vai iniciar)',
     texto: `*🚨 OPERAÇÃO INICIADA* ✅
 
-📢 Meu time vai iniciar as validações e daqui a pouco eu trago as atualizações!`,
+👨‍💻 Meu time vai iniciar as validações e daqui a pouco eu trago as atualizações!`,
   },
   {
     id: 'aq-1120-v8',
@@ -318,7 +318,7 @@ Vamos finalizar a validação no restante das nossas contas e jájá eu trago a 
 
 ✅ Em uma das nossas contas o resultado foi esse família!
 
-📢 Vamos finalizar as validações em mais algumas contas e logo menos trago a entrada validada pra vocês!`,
+👨‍💻 Vamos finalizar as validações em mais algumas contas e logo menos trago a entrada validada pra vocês!`,
   },
   // ---- 12h20 (campanha AQUECIMENTO — versões que pedem contas) ----
   {
