@@ -240,7 +240,7 @@ export default function RotinaDia() {
                   {st.on && temModelos && (
                     <div className="px-3 pb-3">
                       <ModelPicker value={st.modeloId} onChange={(v) => setPasta(p.id, { modeloId: v })} placeholder="Escolha a variação…"
-                        titulo={`Aquecimento ${p.label}`} options={opts.map((m) => ({ value: m.id, label: semLabel(m), texto: m.texto }))} />
+                        titulo={`Aquecimento ${p.label}`} options={opts.map((m, idx) => ({ value: m.id, label: `Variação ${idx + 1}`, texto: m.texto }))} />
                     </div>
                   )}
                 </div>
@@ -275,7 +275,7 @@ export default function RotinaDia() {
                     <div>
                       <label className="label">Modelo</label>
                       <ModelPicker value={pd.modeloId} onChange={(v) => setPedido(i, { modeloId: v })} placeholder="Texto…"
-                        titulo="Pedido" options={MODELOS.pedido.map((m) => ({ value: m.id, label: m.label, texto: m.texto }))} />
+                        titulo="Pedido" options={MODELOS.pedido.map((m, idx) => ({ value: m.id, label: `Variação ${idx + 1}`, texto: m.texto }))} />
                     </div>
                   </div>
                   <div>
@@ -332,7 +332,7 @@ export default function RotinaDia() {
                   <div>
                     <label className="label">Modelo</label>
                     <ModelPicker value={e.modeloId} onChange={(v) => setEntrada(i, { modeloId: v })} placeholder="Escolha o texto…"
-                      titulo="Entrada" options={MODELOS.entrada.map((m) => ({ value: m.id, label: m.label, texto: aplicarSlot(m.texto, e.slot) }))} />
+                      titulo="Entrada" options={MODELOS.entrada.map((m, idx) => ({ value: m.id, label: `Variação ${idx + 1}`, texto: aplicarSlot(m.texto, e.slot) }))} />
                   </div>
                 </div>
               ))}
