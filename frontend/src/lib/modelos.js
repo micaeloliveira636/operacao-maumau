@@ -320,6 +320,70 @@ Vamos finalizar a validação no restante das nossas contas e jájá eu trago a 
 
 📢 Vamos finalizar as validações em mais algumas contas e logo menos trago a entrada validada pra vocês!`,
   },
+  // ---- 12h20 (campanha AQUECIMENTO — versões que pedem contas) ----
+  {
+    id: 'aq-1220-v1',
+    label: '12h20 — Finalizando validação (resultado numa conta)',
+    texto: `*🚨FINALIZANDO VALIDAÇÃO*
+
+✅Em uma das nossas contas o resultado foi esse familia!
+
+👨‍💻 Vamos finalizar as validações em mais algumas contas e logo menos vamos precisar de muitas contas lara!`,
+  },
+  {
+    id: 'aq-1220-v2',
+    label: '12h20 — Finalizando validação (resultado do dev)',
+    texto: `*FINALIZANDO A VALIDAÇÃO🚨*
+
+Se liga nesse resultado que o meu desenvolvedor conseguiu em uma das nossas contas família
+
+Vamos finalizar a validação no restante das nossas contas e jájá eu vou precisar de contas lara!`,
+  },
+  {
+    id: 'aq-1220-v3',
+    label: '12h20 — Finalizando validação (meu time)',
+    texto: `*🚨FINALIZANDO VALIDAÇÃO*
+
+Família, meu time vai finalizar as validações nas últimas contas e jájá eu vou precisar de contas para escalar a falha.
+
+*FIQUEM ATENTOS!!🚨*`,
+  },
+  {
+    id: 'aq-1220-v4',
+    label: '12h20 — Finalizando validação (estamos finalizando)',
+    texto: `🚨FINALIZANDO VALIDAÇÃO
+
+Família, estamos finalizando as validações nas últimas contas e jájá eu vou precisar de contas lara.
+
+FIQUEM ATENTOS!!🚨`,
+  },
+  {
+    id: 'aq-1220-v5',
+    label: '12h20 — Sistema novo 100% validado',
+    texto: `SISTEMA NOVO 100% VALIDADO ✅
+
+Já estamos aproveitando as falhas dessa casa nova, vamos testar em mais contas e daqui a pouco vamos precisar de mais contas!`,
+  },
+  {
+    id: 'aq-1220-v6',
+    label: '12h20 — Brecha localizada (sábado)',
+    texto: `*🚨BRECHA LOCALIZADA*
+
+Família, sabadão e nós continuamos no foco por aqui e já localizamos algumas brechas no sistema!
+
+Já iniciamos as validações e logo menos vamos precisar de muitos laras!!
+
+FIQUEM ATENTOS!!`,
+  },
+  {
+    id: 'aq-1220-v7',
+    label: '12h20 — Falha localizada (sábado/domingo)',
+    texto: `*🚨FALHA LOCALIZADA*
+
+Família, conseguimos localizar novas falhas, caso se confirme eu vou precisar de laras!!
+
+*FIQUEM ATENTOS!!*`,
+  },
   {
     id: 'aq-18h-1',
     label: '18h — Var 1 (normal)',
@@ -343,14 +407,29 @@ O sistema novo ta apresentando diversas falhas família, assim que validarmos eu
 
 *FIQUEM ATENTOS!*`,
   },
+  // ---- 18h20 (campanha AQUECIMENTO — versões que pedem contas) ----
   {
-    id: 'aq-1820-aquec',
-    label: '18h20 — Campanha AQUECIMENTO (texto adaptado)',
+    id: 'aq-1820-v1',
+    label: '18h20 — Sistema novo (vai precisar de contas)',
     texto: `*ATENÇÃO FAMÍLIA🚨*
 
-O sistema novo ta apresentando diversas falhas família, assim que validarmos vamos precisar de mais contas!!
+O sistema novo ta apresentando diversas falhas família, assim que validarmos eu vou precisar de mais contas!!
 
 *FIQUEM ATENTOS!*`,
+  },
+  {
+    id: 'aq-1820-v2',
+    label: '18h20 — Localizamos falhas',
+    texto: `*ATENÇÃO FAMÍLIA🚨*
+
+Localizamos algumas falhas no sistema, vamos validar e retorno aqui!`,
+  },
+  {
+    id: 'aq-1820-v3',
+    label: '18h20 — Ponto principal (vai precisar de contas)',
+    texto: `*ATENÇÃO FAMÍLIA🚨*
+
+Assim que a gente validar o ponto principal eu vou precisar de contas. FIQUEM ATENTOS!!`,
   },
   {
     id: 'aq-21h-1',
