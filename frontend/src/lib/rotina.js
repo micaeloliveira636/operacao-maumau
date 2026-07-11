@@ -64,6 +64,47 @@ export function diaDaSemana(dataISO) {
   return new Date(`${dataISO}T12:00:00`).getDay();
 }
 
+// soma minutos a um "HH:MM"
+function addMin(hhmm, min) {
+  const [h, m] = String(hhmm).split(':').map(Number);
+  const t = h * 60 + m + min;
+  const H = Math.floor((t % 1440) / 60);
+  const M = t % 60;
+  return `${String(H).padStart(2, '0')}:${String(M).padStart(2, '0')}`;
+}
+
+// id do texto do ÚLTIMO feedback do bloco (varia por horário/dia).
+function feedbackFinalId(entradaHora, sistemaNovo, weekday, ehUltimaDom) {
+  if (weekday === 0) return ehUltimaDom ? 'fb-ult-dom-20h20' : 'fb-ult-dom-14h13';
+  if (entradaHora === '12:30') return sistemaNovo ? 'fb-ult-sn-14h17' : 'fb-ult-14h15';
+  if (entradaHora === '18:30') return sistemaNovo ? 'fb-ult-sn-20h17' : 'fb-ult-20h15';
+  if (entradaHora === '21:30') return sistemaNovo ? 'fb-ult-sn-23h21' : 'fb-ult-23h20';
+  return 'fb-ult-20h15';
+}
+
+// Gera os blocos de feedback do dia (atribuídos depois à Giselle).
+// Entrada: 5 msgs a cada 15min (1ª e 5ª com texto fixo; 2/3/4 em branco).
+// Lara: 2 msgs (+30/+60) após cada pedido de 13h/15h/19h.
+function montarFeedbacks(base, weekday) {
+  const fb = [];
+  base.entradas.forEach((e, idx) => {
+    const ehUltimaDom = weekday === 0 && idx === base.entradas.length - 1;
+    [15, 30, 45, 60, 75].forEach((off, i) => {
+      let legendaId = '';
+      if (i === 0) legendaId = 'fb-primeiro';
+      else if (i === 4) legendaId = feedbackFinalId(e.hora, base.sistemaNovo, weekday, ehUltimaDom);
+      fb.push({ categoria: 'feedback-entrada', hora: addMin(e.hora, off), legendaId });
+    });
+  });
+  for (const pd of base.pedidos) {
+    if (['13:00', '15:00', '19:00'].includes(pd.hora)) {
+      fb.push({ categoria: 'feedback-lara', hora: addMin(pd.hora, 30), legendaId: '' });
+      fb.push({ categoria: 'feedback-lara', hora: addMin(pd.hora, 60), legendaId: '' });
+    }
+  }
+  return fb.sort((a, b) => a.hora.localeCompare(b.hora));
+}
+
 const NOME_DIA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 export const nomeDoDia = (dataISO) => NOME_DIA[diaDaSemana(dataISO)];
 
@@ -94,6 +135,7 @@ export function montarRotina(dataISO, { sabadoModo = 2 } = {}) {
     aquec,
     pedidos,
     entradas,
+    feedbacks: montarFeedbacks(base, d),
     sistemaNovo: base.sistemaNovo,
   };
 }

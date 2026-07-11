@@ -42,6 +42,7 @@ export default function RotinaDia() {
   const [pedidos, setPedidos] = useState([]);
   const [entradas, setEntradas] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbackResp, setFeedbackResp] = useState('');
 
   const setPasta = (id, patch) => setAquec((a) => ({ ...a, [id]: { ...a[id], ...patch } }));
   const ehSabado = diaDaSemana(dataAlvo) === 6;
@@ -52,6 +53,14 @@ export default function RotinaDia() {
     setAquec(r.aquec);
     setPedidos(r.pedidos);
     setEntradas(r.entradas);
+    const fbModelos = MODELOS['feedback-entrada'] || [];
+    setFeedbacks(
+      (r.feedbacks || []).map((f) => ({
+        categoria: f.categoria,
+        hora: f.hora,
+        legenda: fbModelos.find((m) => m.id === f.legendaId)?.texto || '',
+      }))
+    );
     toast.sucesso(`Roteiro de ${nomeDoDia(dataAlvo)} preenchido${r.sistemaNovo ? ' (sistema novo)' : ''}`);
   }
 
@@ -73,7 +82,7 @@ export default function RotinaDia() {
 
   // feedbacks
   const setFeedback = (i, patch) => setFeedbacks((f) => f.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
-  const addFeedback = () => setFeedbacks((f) => [...f, { categoria: 'feedback-entrada', hora: '', atribuidoA: '' }]);
+  const addFeedback = () => setFeedbacks((f) => [...f, { categoria: 'feedback-lara', hora: '', legenda: '' }]);
   const delFeedback = (i) => setFeedbacks((f) => f.filter((_, idx) => idx !== i));
 
   const specs = useMemo(() => {
@@ -116,16 +125,17 @@ export default function RotinaDia() {
       });
     }
     for (const f of feedbacks) {
-      if (!f.hora || !f.atribuidoA) continue;
+      if (!f.hora || !feedbackResp) continue;
       const label = FEEDBACKS.find((x) => x.value === f.categoria)?.label || 'Feedback';
       out.push({
         titulo: `${label} ${f.hora}`, categoria: f.categoria, dataAlvo, horarios: [f.hora],
+        legenda: f.legenda || null,
         campanhasDestino: ['ATIVOS 1', 'ATIVOS 2'], releaseIds: releasesDe(['ATIVOS 1', 'ATIVOS 2']),
-        atribuidoA: f.atribuidoA, velocidade: 'slow',
+        atribuidoA: feedbackResp, velocidade: 'slow',
       });
     }
     return out;
-  }, [bomDia, aquec, pedidos, entradas, feedbacks, dataAlvo, user]);
+  }, [bomDia, aquec, pedidos, entradas, feedbacks, feedbackResp, dataAlvo, user]);
 
   async function onSubmit() {
     if (specs.length === 0) return toast.erro('Monte ao menos uma demanda para o dia');
@@ -325,41 +335,41 @@ export default function RotinaDia() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="section-title">Feedbacks</h2>
-              <p className="mt-0.5 text-xs text-slate-500">Atribua a quem vai subir a mídia (ex.: Giselle).</p>
+              <p className="mt-0.5 text-xs text-slate-500">Giselle sobe a mídia; você aprova, põe a legenda e agenda.</p>
             </div>
             <button type="button" onClick={addFeedback} className="btn-ghost px-2.5 py-1.5 text-xs">
               <Icon name="plus" className="h-3.5 w-3.5" /> Feedback
             </button>
           </div>
+
+          <div>
+            <label className="label">Responsável pelos feedbacks</label>
+            <Select value={feedbackResp} onChange={setFeedbackResp} placeholder="Selecione (ex.: Giselle)…"
+              options={operadores.map((u) => ({ value: u.id, label: `${u.nome} (${u.role})` }))} />
+          </div>
+
           {feedbacks.length === 0 ? (
-            <p className="text-xs text-slate-500">Nenhum feedback.</p>
+            <p className="text-xs text-slate-500">Nenhum feedback. Preencha pelo dia ou adicione manualmente.</p>
           ) : (
-            <div className="space-y-3">
-              {feedbacks.map((f, i) => (
-                <div key={i} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-400">Feedback {i + 1}</span>
-                    <button type="button" onClick={() => delFeedback(i)} className="link-quiet p-1"><Icon name="trash" className="h-4 w-4" /></button>
+            <>
+              <div className="space-y-2">
+                {feedbacks.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-2">
+                    <Select value={f.categoria} onChange={(v) => setFeedback(i, { categoria: v })} className="w-40 flex-none"
+                      options={FEEDBACKS.map((x) => ({ value: x.value, label: x.label }))} />
+                    <input type="time" className="input flex-none" style={{ width: '7.5rem' }} value={f.hora}
+                      onChange={(ev) => setFeedback(i, { hora: ev.target.value })} />
+                    <span className={`min-w-0 flex-1 truncate text-[11px] ${f.legenda ? 'text-emerald-300/80' : 'text-slate-500'}`}>
+                      {f.legenda ? 'legenda fixa' : 'legenda depois'}
+                    </span>
+                    <button type="button" onClick={() => delFeedback(i)} className="link-quiet flex-none p-1"><Icon name="trash" className="h-4 w-4" /></button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="label">Tipo</label>
-                      <Select value={f.categoria} onChange={(v) => setFeedback(i, { categoria: v })}
-                        options={FEEDBACKS.map((x) => ({ value: x.value, label: x.label }))} />
-                    </div>
-                    <div>
-                      <label className="label">Horário</label>
-                      <input type="time" className="input" value={f.hora} onChange={(ev) => setFeedback(i, { hora: ev.target.value })} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="label">Responsável</label>
-                    <Select value={f.atribuidoA} onChange={(v) => setFeedback(i, { atribuidoA: v })} placeholder="Selecione…"
-                      options={operadores.map((u) => ({ value: u.id, label: `${u.nome} (${u.role})` }))} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              {!feedbackResp && feedbacks.length > 0 && (
+                <p className="text-[11px] text-amber-300/80">Escolha o responsável para incluir os feedbacks no dia.</p>
+              )}
+            </>
           )}
         </div>
 
