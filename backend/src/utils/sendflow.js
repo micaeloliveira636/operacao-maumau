@@ -54,41 +54,27 @@ async function fetchComTimeout(url, opts = {}, ms = 20000) {
 }
 
 /**
- * Contas (accountIds) que vão disparar a campanha.
- * 1) tenta os accountIds do próprio release;
- * 2) fallback: todas as contas AUTENTICADAS do usuário (GET /accounts),
- *    já que as contas do SendFlow não são atreladas ao release.
+ * Chips (accountIds) da campanha — fonte autoritativa é o `release.accountIds`
+ * (confirmado no manual e testado: ATIVOS 2 = 5 chips). Buscar SEMPRE fresco,
+ * pois os chips caem/entram ao longo do dia. Vazio = campanha sem chips agora
+ * (ex.: caíram todos) — o chamador deve pular/avisar, NÃO usar outros chips.
  */
 async function buscarAccountIds(releaseId) {
   const b = await base();
   const H = await headers();
-
-  // 1) accountIds do release (se o release listar)
   const relPath = (await cfg.get('sendflow_releases_path')) || '/releases/:releaseId';
   const relUrl = b + relPath.replace(':releaseId', encodeURIComponent(releaseId));
+
   const rr = await fetchComTimeout(relUrl, { headers: H });
   if (!rr.ok) {
     const txt = await rr.text().catch(() => '');
     throw new Error(`Release ${releaseId}: ${rr.status} ${txt.slice(0, 160)}`);
   }
   const rel = await rr.json().catch(() => ({}));
-  const doRelease = Array.isArray(rel.accountIds) ? rel.accountIds.filter(Boolean).map(String) : [];
-  if (doRelease.length) return doRelease;
-
-  // 2) fallback: contas autenticadas
-  const accPath = (await cfg.get('sendflow_accounts_path')) || '/accounts';
-  const ar = await fetchComTimeout(b + accPath, { headers: H });
-  if (!ar.ok) {
-    const txt = await ar.text().catch(() => '');
-    throw new Error(`Contas: ${ar.status} ${txt.slice(0, 160)}`);
+  const ids = Array.isArray(rel.accountIds) ? rel.accountIds.filter(Boolean).map(String) : [];
+  if (ids.length === 0) {
+    throw new Error(`Campanha sem chips no momento (accountIds vazio) — release ${releaseId}`);
   }
-  const accJson = await ar.json().catch(() => ({}));
-  const lista = Array.isArray(accJson) ? accJson : Object.values(accJson || {});
-  const ids = lista
-    .filter((a) => a && a.isAuthenticated && a.id)
-    .map((a) => String(a.id));
-
-  if (ids.length === 0) throw new Error('Nenhuma conta autenticada no SendFlow');
   return ids;
 }
 
