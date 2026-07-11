@@ -8,8 +8,9 @@ function navItems(isAdmin) {
   const base = [
     { to: '/', label: 'Dashboard', icon: 'dashboard', end: true },
     { to: '/board', label: 'Board', icon: 'board' },
-    { to: '/copys', label: 'Copys', icon: 'copy' },
   ];
+  if (isAdmin) base.push({ to: '/rotina', label: 'Montar dia', icon: 'calendar' });
+  base.push({ to: '/copys', label: 'Copys', icon: 'copy' });
   if (isAdmin) base.push({ to: '/usuarios', label: 'Equipe', icon: 'users' });
   base.push({ to: '/config', label: 'Ajustes', icon: 'sparkle' });
   return base;

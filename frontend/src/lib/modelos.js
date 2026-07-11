@@ -403,6 +403,27 @@ export const MODELOS = {
   'bom-dia': BOM_DIA,
 };
 
+// Pastas do aquecimento (por horário, como no SendFlow). `hora` é o horário
+// de envio padrão daquele slot. `prefixo` casa com o id dos modelos.
+export const PASTAS_AQUECIMENTO = [
+  { id: '11h20', label: '11h20', hora: '11:20', prefixo: 'aq-1120-' },
+  { id: '12h', label: '12h', hora: '12:00', prefixo: 'aq-12h-' },
+  { id: '12h20', label: '12h20', hora: '12:20', prefixo: 'aq-1220-' },
+  { id: '18h', label: '18h', hora: '18:00', prefixo: 'aq-18h-' },
+  { id: '18h20', label: '18h20', hora: '18:20', prefixo: 'aq-1820-' },
+  { id: '21h', label: '21h', hora: '21:00', prefixo: 'aq-21h-' },
+];
+
+// Modelos de uma pasta de aquecimento.
+export function modelosDaPasta(pastaId) {
+  const p = PASTAS_AQUECIMENTO.find((x) => x.id === pastaId);
+  if (!p) return [];
+  return AQUECIMENTO.filter((m) => m.id.startsWith(p.prefixo));
+}
+
+// Horários sugeridos para as entradas do dia.
+export const HORARIOS_ENTRADA = ['12:30', '18:30', '21:30'];
+
 // categorias que usam link (só entrada, conforme a operação)
 export function categoriaUsaLink(categoria) {
   return categoria === 'entrada';

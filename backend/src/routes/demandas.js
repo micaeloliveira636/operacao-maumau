@@ -139,6 +139,64 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /demandas/rotina — cria várias demandas de uma vez ("montar o dia")
+router.post('/rotina', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const lista = Array.isArray(req.body?.demandas) ? req.body.demandas : [];
+    if (lista.length === 0) return res.status(400).json({ error: 'Nenhuma demanda enviada' });
+    if (lista.length > 40) return res.status(400).json({ error: 'Máximo de 40 demandas por vez' });
+
+    const criadas = [];
+    for (const d of lista) {
+      if (!d?.titulo || !d?.categoria || !d?.dataAlvo || !Array.isArray(d?.horarios) || !d?.atribuidoA) {
+        return res.status(400).json({ error: `Demanda inválida: ${d?.titulo || '(sem título)'}` });
+      }
+      const autoGerida = d.atribuidoA === req.user.id;
+      const [nova] = await db.insert(demandas).values({
+        titulo: d.titulo,
+        categoria: d.categoria,
+        descricao: d.descricao || null,
+        dataAlvo: d.dataAlvo,
+        horarios: d.horarios,
+        campanhasDestino: d.campanhasDestino || [],
+        releaseIds: d.releaseIds || [],
+        atribuidoA: d.atribuidoA,
+        criadoPor: req.user.id,
+        status: 'em_andamento',
+        legenda: d.legenda || null,
+        mencionar: d.mencionar || false,
+        velocidade: d.velocidade || 'slow',
+        linkPrincipal: d.linkPrincipal || null,
+        linkDois: d.linkDois || null,
+      }).returning();
+      criadas.push(nova);
+
+      if (d.atribuidoA && !autoGerida) {
+        notificarUsuario({
+          userId: d.atribuidoA,
+          titulo: 'Nova demanda atribuída',
+          mensagem: `${d.titulo} — categoria ${d.categoria}. Prazo: ${d.dataAlvo}.`,
+          tipo: 'info',
+          demandaId: nova.id,
+          url: `/demandas/${nova.id}`,
+        });
+      }
+    }
+
+    await logActivity({
+      userId: req.user.id,
+      action: 'rotina.criada',
+      metadata: { total: criadas.length },
+      ipAddress: req.ip,
+    });
+
+    return res.status(201).json({ demandas: criadas });
+  } catch (err) {
+    console.error('Erro ao montar o dia:', err);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
 // PATCH /demandas/:id — editar (admin only)
 router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {

@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Board from './pages/Board';
 import NovaDemanda from './pages/NovaDemanda';
+import RotinaDia from './pages/RotinaDia';
 import DemandaDetalhe from './pages/DemandaDetalhe';
 import Copys from './pages/Copys';
 import Usuarios from './pages/Usuarios';
@@ -34,6 +35,7 @@ export default function App() {
       <Route path="/" element={<Protected><Dashboard /></Protected>} />
       <Route path="/board" element={<Protected><Board /></Protected>} />
       <Route path="/demandas/nova" element={<Protected adminOnly><NovaDemanda /></Protected>} />
+      <Route path="/rotina" element={<Protected adminOnly><RotinaDia /></Protected>} />
       <Route path="/demandas/:id" element={<Protected><DemandaDetalhe /></Protected>} />
       <Route path="/copys" element={<Protected><Copys /></Protected>} />
       <Route path="/usuarios" element={<Protected adminOnly><Usuarios /></Protected>} />
