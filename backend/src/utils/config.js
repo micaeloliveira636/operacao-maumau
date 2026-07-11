@@ -13,16 +13,24 @@ const ENV_FALLBACK = {
   sendflow_releases_path: null, // default fixo abaixo
   sendflow_send_path: null,
   sendflow_notify_path: 'SENDFLOW_NOTIFY_PATH',
+  sendflow_accounts_path: null,
   release_ativos1: null,
   release_ativos2: null,
   release_aquecimento: null,
 };
 
+// Contrato REAL confirmado (jul/2026) via swagger da API:
+//   host  https://sendapi.sendflow.pro  (NÃO sendflow.pro/sendapi)
+//   GET  /releases/:releaseId            -> dados do release
+//   GET  /accounts                       -> contas (usa as isAuthenticated)
+//   POST /actions/send-{tipo}-message    -> { releaseId, accountIds, ... }
+//   POST /actions/delete                 -> { actions: [...] }
 const DEFAULTS = {
-  sendflow_api_url: 'https://sendflow.pro',
-  sendflow_releases_path: '/sendapi/releases/:releaseId',
-  sendflow_send_path: '/sendapi/actions', // base; vira /send-{tipo}-message/{accountId}
-  sendflow_notify_path: '/sendapi/actions/send-text-message',
+  sendflow_api_url: 'https://sendapi.sendflow.pro',
+  sendflow_releases_path: '/releases/:releaseId',
+  sendflow_send_path: '/actions', // base; vira /send-{tipo}-message
+  sendflow_accounts_path: '/accounts',
+  sendflow_notify_path: '/actions/send-text-message',
   release_ativos1: 'LS061jlmh7U9iJ6v4SUN',
   release_ativos2: '8C9Xo8rsvshj6zNYRYYf',
   release_aquecimento: 'IRy3PxVIfh85kQrus2LN',

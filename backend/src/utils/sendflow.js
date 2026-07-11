@@ -53,29 +53,43 @@ async function fetchComTimeout(url, opts = {}, ms = 20000) {
   }
 }
 
-/** GET /sendapi/releases/{releaseId} -> accountIds frescos. */
+/**
+ * Contas (accountIds) que vão disparar a campanha.
+ * 1) tenta os accountIds do próprio release;
+ * 2) fallback: todas as contas AUTENTICADAS do usuário (GET /accounts),
+ *    já que as contas do SendFlow não são atreladas ao release.
+ */
 async function buscarAccountIds(releaseId) {
   const b = await base();
-  const path = (await cfg.get('sendflow_releases_path')) || '/sendapi/releases/:releaseId';
-  const url = b + path.replace(':releaseId', encodeURIComponent(releaseId));
+  const H = await headers();
 
-  const resp = await fetchComTimeout(url, { headers: await headers() });
-  if (!resp.ok) {
-    const txt = await resp.text().catch(() => '');
-    throw new Error(`Release ${releaseId}: ${resp.status} ${txt.slice(0, 160)}`);
+  // 1) accountIds do release (se o release listar)
+  const relPath = (await cfg.get('sendflow_releases_path')) || '/releases/:releaseId';
+  const relUrl = b + relPath.replace(':releaseId', encodeURIComponent(releaseId));
+  const rr = await fetchComTimeout(relUrl, { headers: H });
+  if (!rr.ok) {
+    const txt = await rr.text().catch(() => '');
+    throw new Error(`Release ${releaseId}: ${rr.status} ${txt.slice(0, 160)}`);
   }
-  const json = await resp.json().catch(() => ({}));
+  const rel = await rr.json().catch(() => ({}));
+  const doRelease = Array.isArray(rel.accountIds) ? rel.accountIds.filter(Boolean).map(String) : [];
+  if (doRelease.length) return doRelease;
 
-  const cand =
-    json.accountIds ||
-    json.data?.accountIds ||
-    json.release?.accountIds ||
-    (Array.isArray(json.accounts) ? json.accounts.map((a) => a.id || a.accountId) : null);
-
-  if (!Array.isArray(cand) || cand.length === 0) {
-    throw new Error(`Release ${releaseId} sem accountIds`);
+  // 2) fallback: contas autenticadas
+  const accPath = (await cfg.get('sendflow_accounts_path')) || '/accounts';
+  const ar = await fetchComTimeout(b + accPath, { headers: H });
+  if (!ar.ok) {
+    const txt = await ar.text().catch(() => '');
+    throw new Error(`Contas: ${ar.status} ${txt.slice(0, 160)}`);
   }
-  return cand.filter(Boolean).map(String);
+  const accJson = await ar.json().catch(() => ({}));
+  const lista = Array.isArray(accJson) ? accJson : Object.values(accJson || {});
+  const ids = lista
+    .filter((a) => a && a.isAuthenticated && a.id)
+    .map((a) => String(a.id));
+
+  if (ids.length === 0) throw new Error('Nenhuma conta autenticada no SendFlow');
+  return ids;
 }
 
 /**
@@ -93,14 +107,20 @@ async function agendarAcao({
   mentionAll,
 }) {
   const b = await base();
-  const acoes = (await cfg.get('sendflow_send_path')) || '/sendapi/actions';
-  const endpoint = `${b}${acoes}/send-${tipo}-message/${encodeURIComponent(accountId)}`;
+  const acoes = (await cfg.get('sendflow_send_path')) || '/actions';
+  // Envio de CAMPANHA: /actions/send-{tipo}-message  (accountIds no corpo).
+  const endpoint = `${b}${acoes}/send-${tipo}-message`;
 
-  const options = { shippingSpeed, mentionAll: Boolean(mentionAll) };
+  const options = { shippingSpeed: shippingSpeed || 'slow' };
+  const comum = { releaseId, accountIds: [String(accountId)], scheduledTo, options };
   const body =
     tipo === 'text'
-      ? { releaseId, messageText: mensagem, scheduledTo, options }
-      : { releaseId, url, caption: mensagem || '', scheduledTo, options };
+      ? { ...comum, messageText: mensagem || '' }
+      : { ...comum, url, caption: mensagem || '' };
+
+  // OBS: a menção a todos (mentionAll) só existe no endpoint /actions/send-messages;
+  // os endpoints simples não a suportam. Mantido o parâmetro por compatibilidade.
+  void mentionAll;
 
   try {
     const resp = await fetchComTimeout(endpoint, {
@@ -129,7 +149,7 @@ async function agendarAcao({
 async function deletarAcoes(actionIds) {
   if (!Array.isArray(actionIds) || actionIds.length === 0) return { ok: true, deletadas: 0 };
   const b = await base();
-  const acoes = (await cfg.get('sendflow_send_path')) || '/sendapi/actions';
+  const acoes = (await cfg.get('sendflow_send_path')) || '/actions';
   try {
     const resp = await fetchComTimeout(`${b}${acoes}/delete`, {
       method: 'POST',
