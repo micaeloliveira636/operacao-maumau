@@ -47,7 +47,7 @@ export const BOARD_COLUNAS = [
   { key: 'em_andamento', titulo: 'Em produção', status: ['em_andamento', 'rejeitado'] },
   { key: 'enviado', titulo: 'Aprovação', status: ['enviado'] },
   { key: 'aprovado', titulo: 'Aprovado', status: ['aprovado', 'agendamento_pendente', 'erro_agendamento'] },
-  { key: 'agendado', titulo: 'Agendado', status: ['agendado', 'concluido'] },
+  { key: 'agendado', titulo: 'Agendado', status: ['texto_agendado', 'agendado', 'concluido'] },
 ];
 
 // Cores alinhadas ao design v3

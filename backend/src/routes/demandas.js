@@ -184,14 +184,38 @@ router.post('/rotina', requireAuth, requireAdmin, async (req, res) => {
       }
     }
 
+    // Agenda JÁ o TEXTO das demandas auto-geridas com texto (aquecimento /
+    // entrada / pedido) — caem em "Agendado". Feedbacks seguem o fluxo da
+    // operadora (mídia -> aprovação -> agendamento).
+    let textosAgendados = 0;
+    const errosTexto = [];
+    if (req.body?.agendarTextos !== false) {
+      for (const nova of criadas) {
+        const auto = nova.atribuidoA === req.user.id;
+        const ehFeedback = String(nova.categoria || '').startsWith('feedback');
+        if (!auto || ehFeedback || !nova.legenda) continue;
+        try {
+          const r = await agendador.executarAgendamentoTexto(nova, req.user.id);
+          if (r.ok) {
+            textosAgendados += 1;
+            await db.update(demandas).set({ status: 'texto_agendado', updatedAt: new Date() }).where(eq(demandas.id, nova.id));
+          } else {
+            errosTexto.push(`${nova.titulo}: ${(r.erros || [r.error]).slice(0, 1).join('')}`);
+          }
+        } catch (e) {
+          errosTexto.push(`${nova.titulo}: ${e.message}`);
+        }
+      }
+    }
+
     await logActivity({
       userId: req.user.id,
       action: 'rotina.criada',
-      metadata: { total: criadas.length },
+      metadata: { total: criadas.length, textosAgendados, erros: errosTexto.length },
       ipAddress: req.ip,
     });
 
-    return res.status(201).json({ demandas: criadas });
+    return res.status(201).json({ demandas: criadas, textosAgendados, errosTexto });
   } catch (err) {
     console.error('Erro ao montar o dia:', err);
     return res.status(500).json({ error: 'Erro interno' });

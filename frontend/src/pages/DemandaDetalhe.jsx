@@ -326,7 +326,15 @@ export default function DemandaDetalhe() {
               demandaId={demanda.id}
               ordemInicial={proximaOrdem}
               horariosSugeridos={demanda.horarios}
-              onEnviado={(arq) => setArquivos((a) => [...a, arq])}
+              onEnviado={(arq) => {
+                const next = [...arquivos, arq];
+                setArquivos(next);
+                // Auto: mídia adicionada num texto já agendado -> reagenda completo.
+                if (autoGerida && demanda.status === 'texto_agendado' && next.length >= (demanda.horarios || []).length) {
+                  toast.sucesso('Mídia adicionada — reagendando com a mídia…');
+                  setTimeout(() => confirmarAgendamento(), 300);
+                }
+              }}
             />
           </div>
         )}

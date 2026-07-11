@@ -34,6 +34,7 @@ export default function RotinaDia() {
 
   const [dataAlvo, setDataAlvo] = useState(new Date().toISOString().slice(0, 10));
   const [sabadoModo, setSabadoModo] = useState(2);
+  const [linkDia, setLinkDia] = useState({ principal: '', dois: '' });
   const [enviando, setEnviando] = useState(false);
   const [criadas, setCriadas] = useState(null);
 
@@ -129,6 +130,7 @@ export default function RotinaDia() {
         titulo: `Entrada ${e.hora}${e.slot ? ` — ${e.slot}` : ''}`, categoria: 'entrada', dataAlvo, horarios: [e.hora],
         legenda: m ? aplicarSlot(m.texto, e.slot) : '', campanhasDestino: ['ATIVOS 1', 'ATIVOS 2'],
         releaseIds: releasesDe(['ATIVOS 1', 'ATIVOS 2']), atribuidoA: user?.id, velocidade: 'normal',
+        linkPrincipal: linkDia.principal || null, linkDois: linkDia.dois || null,
       });
     }
     for (const g of feedbacks) {
@@ -142,14 +144,15 @@ export default function RotinaDia() {
       });
     }
     return out;
-  }, [bomDia, aquec, pedidos, entradas, feedbacks, feedbackResp, dataAlvo, user]);
+  }, [bomDia, aquec, pedidos, entradas, feedbacks, feedbackResp, dataAlvo, linkDia, user]);
 
   async function onSubmit() {
     if (specs.length === 0) return toast.erro('Monte ao menos uma demanda para o dia');
     setEnviando(true);
     try {
-      const { demandas } = await api.post('/demandas/rotina', { demandas: specs });
-      setCriadas(demandas?.length || specs.length);
+      const { demandas, textosAgendados = 0, errosTexto = [] } = await api.post('/demandas/rotina', { demandas: specs });
+      if (errosTexto.length) toast.erro(`Alguns textos falharam: ${errosTexto.slice(0, 2).join(' | ')}`);
+      setCriadas({ total: demandas?.length || specs.length, textos: textosAgendados });
     } catch (err) {
       toast.erro(err.message || 'Erro ao montar o dia');
       setEnviando(false);
@@ -159,7 +162,10 @@ export default function RotinaDia() {
   return (
     <div className="mx-auto max-w-2xl animate-fade-up">
       {criadas != null && (
-        <SuccessOverlay message={`${criadas} demanda(s) criadas`} onDone={() => navigate('/board')} />
+        <SuccessOverlay
+          message={`${criadas.total} demanda(s) · ${criadas.textos} texto(s) agendado(s)`}
+          onDone={() => navigate('/board')}
+        />
       )}
       <button onClick={() => navigate(-1)} className="link-quiet mb-4 inline-flex items-center gap-1.5 text-sm">
         <Icon name="arrowLeft" className="h-4 w-4" /> Voltar
@@ -310,6 +316,18 @@ export default function RotinaDia() {
               <Icon name="plus" className="h-3.5 w-3.5" /> Entrada
             </button>
           </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <label className="label">Link do dia (principal)</label>
+              <input className="input" value={linkDia.principal} onChange={(e) => setLinkDia((l) => ({ ...l, principal: e.target.value }))} placeholder="https://… (ATIVOS 1 e 2)" />
+            </div>
+            <div>
+              <label className="label">Link 2 (só ATIVOS 1)</label>
+              <input className="input" value={linkDia.dois} onChange={(e) => setLinkDia((l) => ({ ...l, dois: e.target.value }))} placeholder="https://… (2ª mensagem)" />
+            </div>
+          </div>
+
           {entradas.length === 0 ? (
             <p className="text-xs text-slate-500">Nenhuma entrada.</p>
           ) : (

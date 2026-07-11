@@ -204,10 +204,14 @@ function montarPlanoTexto(demanda) {
   const ehPedido = demanda.categoria === 'pedido';
   const shippingSpeed = ehEntrada ? 'normal' : demanda.velocidade || 'slow';
   const mentionAll = ehPedido ? false : Boolean(demanda.mencionar);
-  const legendaBase = String(demanda.legenda || '').replace(/\{link\}/g, '').trim();
+  const linkPrincipal = demanda.linkPrincipal || '';
+  // com link do dia -> insere no texto; sem link -> remove o {link}
+  const legendaBase = linkPrincipal
+    ? montarLegenda(demanda.legenda || '', linkPrincipal)
+    : String(demanda.legenda || '').replace(/\{link\}/g, '').trim();
   const horarios = (demanda.horarios || []).filter(Boolean);
 
-  if (!legendaBase) avisos.push('Demanda sem texto para agendar.');
+  if (!String(demanda.legenda || '').trim()) avisos.push('Demanda sem texto para agendar.');
 
   for (const horario of horarios) {
     const scheduledTo = montarScheduledTo(demanda.dataAlvo, horario);
