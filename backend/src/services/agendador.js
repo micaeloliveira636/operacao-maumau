@@ -345,16 +345,28 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
     const actionIds = [];
     const falhasConta = [];
     for (const accountId of accountIds) {
-      const envio = await sendflow.agendarAcao({
-        tipo: item.tipo,
-        accountId,
-        releaseId: item.releaseId,
-        url: item.url,
-        mensagem: item.legenda,
-        scheduledTo: item.scheduledTo,
-        shippingSpeed: item.shippingSpeed,
-        mentionAll: item.mentionAll,
-      });
+      // Com menção -> endpoint batch (mídia separada do texto que marca todos).
+      // Sem menção (padrão) -> envio simples com legenda junto.
+      const envio = item.mentionAll
+        ? await sendflow.agendarComMencao({
+            tipo: item.tipo,
+            accountId,
+            releaseId: item.releaseId,
+            url: item.url,
+            mensagem: item.legenda,
+            scheduledTo: item.scheduledTo,
+            shippingSpeed: item.shippingSpeed,
+          })
+        : await sendflow.agendarAcao({
+            tipo: item.tipo,
+            accountId,
+            releaseId: item.releaseId,
+            url: item.url,
+            mensagem: item.legenda,
+            scheduledTo: item.scheduledTo,
+            shippingSpeed: item.shippingSpeed,
+            mentionAll: item.mentionAll,
+          });
       if (envio.ok) actionIds.push(envio.actionId || null);
       else falhasConta.push(`${accountId}: ${envio.error}`);
     }
@@ -459,7 +471,7 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
     const novos = [];
     const falhas = [];
     for (const accountId of atuais) {
-      const envio = await sendflow.agendarAcao({
+      const comum = {
         tipo: s.tipoEnvio,
         accountId,
         releaseId: s.releaseId,
@@ -467,8 +479,10 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
         mensagem: s.legenda || '',
         scheduledTo,
         shippingSpeed: s.velocidade || 'slow',
-        mentionAll: Boolean(s.mencionar),
-      });
+      };
+      const envio = s.mencionar
+        ? await sendflow.agendarComMencao(comum)
+        : await sendflow.agendarAcao({ ...comum, mentionAll: Boolean(s.mencionar) });
       if (envio.ok) novos.push(envio.actionId || null);
       else falhas.push(`${accountId}: ${envio.error}`);
     }

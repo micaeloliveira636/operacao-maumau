@@ -104,8 +104,9 @@ async function agendarAcao({
       ? { ...comum, messageText: mensagem || '' }
       : { ...comum, url, caption: mensagem || '' };
 
-  // OBS: a menção a todos (mentionAll) só existe no endpoint /actions/send-messages;
-  // os endpoints simples não a suportam. Mantido o parâmetro por compatibilidade.
+  // OBS: a menção a todos (mentionAll) NÃO existe neste endpoint simples —
+  // quando pedida, o motor roteia para `agendarComMencao` (/actions/send-messages).
+  // Aqui o parâmetro é ignorado de propósito.
   void mentionAll;
 
   try {
@@ -125,6 +126,72 @@ async function agendarAcao({
 
     const actionId =
       json.actionId || json.id || json.data?.actionId || json.data?.id || json.action?.id || null;
+    return { ok: true, actionId, raw: json };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
+ * Agenda um envio COM MENÇÃO A TODOS (marca todo o grupo).
+ * A menção só existe no endpoint batch /actions/send-messages e exige a mídia
+ * SEPARADA do texto: manda a mídia (sem legenda) e depois o texto marcando todos.
+ * Uma chamada por conta (accountId), igual ao `agendarAcao`.
+ * @returns {Promise<{ok, actionId?, error?, raw?}>}
+ */
+async function agendarComMencao({
+  tipo, // 'text' | 'image' | 'video'
+  accountId,
+  releaseId,
+  url, // mídia (image/video); ignorado se tipo 'text'
+  mensagem, // o texto que marca todos
+  scheduledTo,
+  shippingSpeed,
+}) {
+  const b = await base();
+  const acoes = (await cfg.get('sendflow_send_path')) || '/actions';
+  const endpoint = `${b}${acoes}/send-messages`;
+
+  const messages = [];
+  // mídia primeiro, sem legenda (o texto vai separado pra poder mencionar)
+  if (tipo !== 'text' && url) {
+    const chave = tipo === 'video' ? 'video' : 'image';
+    messages.push({ type: `${chave}Message`, message: { [chave]: { url }, caption: '' } });
+  }
+  // texto que marca todo o grupo
+  messages.push({
+    type: 'extendedTextMessage',
+    message: { text: mensagem || '' },
+    options: { mentionAllParticipants: true },
+  });
+
+  const body = {
+    releaseId,
+    accountsFrom: 'accounts',
+    accounts: [String(accountId)],
+    to: { type: 'release', ids: [releaseId] },
+    data: { messages },
+    scheduledTo,
+    options: { shippingSpeed: shippingSpeed || 'slow' },
+  };
+
+  try {
+    const resp = await fetchComTimeout(endpoint, {
+      method: 'POST',
+      headers: await headers(),
+      body: JSON.stringify(body),
+    });
+    const raw = await resp.text().catch(() => '');
+    let json = {};
+    try {
+      json = raw ? JSON.parse(raw) : {};
+    } catch {
+      json = { raw };
+    }
+    if (!resp.ok) return { ok: false, error: `${resp.status}: ${raw.slice(0, 200)}` };
+
+    const actionId =
+      json.id || json.actionId || json.data?.id || json.data?.actionId || json.action?.id || null;
     return { ok: true, actionId, raw: json };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -206,6 +273,7 @@ async function enviarNotificacaoWhatsapp({ whatsapp, mensagem }) {
 module.exports = {
   buscarAccountIds,
   agendarAcao,
+  agendarComMencao,
   deletarAcoes,
   testarConexao,
   estaConfigurado,
