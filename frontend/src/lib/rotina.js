@@ -115,11 +115,17 @@ export function montarRotina(dataISO, { sabadoModo = 2 } = {}) {
 
   const primeiroBomDia = (MODELOS['bom-dia'] || []).find((m) => m.id.startsWith(base.bomDiaPrefixo));
 
+  // slots do dia + acoplamento: pedido 13h => 11h20 e 12h20 (aquecimento);
+  // pedido 19h => 18h20 (no lugar do 18h para a campanha AQUECIMENTO).
+  const slotsOn = new Set(base.aquec);
+  if (base.pedidos.some((pd) => pd.hora === '13:00')) { slotsOn.add('11h20'); slotsOn.add('12h20'); }
+  if (base.pedidos.some((pd) => pd.hora === '19:00')) slotsOn.add('18h20');
+
   const aquec = {};
   for (const p of PASTAS_AQUECIMENTO) {
-    const on = base.aquec.includes(p.id);
     const opts = modelosDaPasta(p.id);
-    aquec[p.id] = { on: on && opts.length > 0, modeloId: on && opts[0] ? opts[0].id : '', hora: p.hora };
+    const on = slotsOn.has(p.id) && opts.length > 0;
+    aquec[p.id] = { on, modeloId: on && opts[0] ? opts[0].id : '', hora: p.hora };
   }
 
   const pedidos = base.pedidos.map((pd) => ({

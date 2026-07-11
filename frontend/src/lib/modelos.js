@@ -564,13 +564,16 @@ export const MODELOS = {
 
 // Pastas do aquecimento (por horário, como no SendFlow). `hora` é o horário
 // de envio padrão daquele slot. `prefixo` casa com o id dos modelos.
+const ATIVOS = ['ATIVOS 1', 'ATIVOS 2'];
+const TODOS = ['AQUECIMENTO', 'ATIVOS 1', 'ATIVOS 2'];
+const SO_AQUEC = ['AQUECIMENTO'];
 export const PASTAS_AQUECIMENTO = [
-  { id: '11h20', label: '11h20', hora: '11:20', prefixo: 'aq-1120-' },
-  { id: '12h', label: '12h', hora: '12:00', prefixo: 'aq-12h-' },
-  { id: '12h20', label: '12h20', hora: '12:20', prefixo: 'aq-1220-' },
-  { id: '18h', label: '18h', hora: '18:00', prefixo: 'aq-18h-' },
-  { id: '18h20', label: '18h20', hora: '18:20', prefixo: 'aq-1820-' },
-  { id: '21h', label: '21h', hora: '21:00', prefixo: 'aq-21h-' },
+  { id: '11h20', label: '11h20', hora: '11:20', prefixo: 'aq-1120-', campanhas: TODOS },
+  { id: '12h', label: '12h', hora: '12:00', prefixo: 'aq-12h-', campanhas: ATIVOS },
+  { id: '12h20', label: '12h20', hora: '12:20', prefixo: 'aq-1220-', campanhas: SO_AQUEC },
+  { id: '18h', label: '18h', hora: '18:00', prefixo: 'aq-18h-', campanhas: ATIVOS },
+  { id: '18h20', label: '18h20', hora: '18:20', prefixo: 'aq-1820-', campanhas: SO_AQUEC },
+  { id: '21h', label: '21h', hora: '21:00', prefixo: 'aq-21h-', campanhas: ATIVOS },
 ];
 
 // Modelos de uma pasta de aquecimento.

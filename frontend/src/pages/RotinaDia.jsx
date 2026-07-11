@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useFetch } from '../lib/useFetch';
@@ -9,7 +9,7 @@ import {
   PASTAS_AQUECIMENTO, modelosDaPasta, MODELOS, SLOTS, aplicarSlot,
 } from '../lib/modelos';
 import { montarRotina, nomeDoDia, diaDaSemana } from '../lib/rotina';
-import { Select, Spinner } from '../components/ui';
+import { Select, ModelPicker, Spinner } from '../components/ui';
 import { SuccessOverlay } from '../components/SuccessOverlay';
 import { Icon } from '../components/Icon';
 
@@ -46,6 +46,11 @@ export default function RotinaDia() {
 
   const setPasta = (id, patch) => setAquec((a) => ({ ...a, [id]: { ...a[id], ...patch } }));
   const ehSabado = diaDaSemana(dataAlvo) === 6;
+
+  // responsável dos feedbacks começa no primeiro operador (ex.: Giselle)
+  useEffect(() => {
+    if (!feedbackResp && operadores[0]) setFeedbackResp(operadores[0].id);
+  }, [operadores, feedbackResp]);
 
   function preencher() {
     const r = montarRotina(dataAlvo, { sabadoModo });
@@ -100,10 +105,11 @@ export default function RotinaDia() {
       if (!st?.on || !st.modeloId) continue;
       const m = modelosDaPasta(p.id).find((x) => x.id === st.modeloId);
       if (!m) continue;
+      const camps = p.campanhas || ['AQUECIMENTO', 'ATIVOS 1', 'ATIVOS 2'];
       out.push({
         titulo: `Aquecimento ${p.label}`, categoria: 'aquecimento', dataAlvo, horarios: [st.hora || p.hora],
-        legenda: m.texto, campanhasDestino: ['AQUECIMENTO', 'ATIVOS 1', 'ATIVOS 2'],
-        releaseIds: releasesDe(['AQUECIMENTO', 'ATIVOS 1', 'ATIVOS 2']), atribuidoA: user?.id, velocidade: 'slow',
+        legenda: m.texto, campanhasDestino: camps, releaseIds: releasesDe(camps),
+        atribuidoA: user?.id, velocidade: 'slow',
       });
     }
     for (const pd of pedidos) {
@@ -199,8 +205,8 @@ export default function RotinaDia() {
               </div>
               <div>
                 <label className="label">Variação</label>
-                <Select value={bomDia.modeloId} onChange={(v) => setBomDia((b) => ({ ...b, modeloId: v }))} placeholder="Escolha…"
-                  options={(MODELOS['bom-dia'] || []).map((m) => ({ value: m.id, label: m.label }))} />
+                <ModelPicker value={bomDia.modeloId} onChange={(v) => setBomDia((b) => ({ ...b, modeloId: v }))} placeholder="Escolha…"
+                  titulo="Bom dia" options={(MODELOS['bom-dia'] || []).map((m) => ({ value: m.id, label: m.label, texto: m.texto }))} />
               </div>
             </div>
           )}
@@ -218,19 +224,23 @@ export default function RotinaDia() {
               const opts = modelosDaPasta(p.id);
               const temModelos = opts.length > 0;
               return (
-                <div key={p.id} className={`rounded-xl border p-3 transition ${st.on ? 'border-brand-400/40 bg-brand-500/[0.06]' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="flex items-center gap-2.5">
-                      <input type="checkbox" checked={st.on} disabled={!temModelos}
-                        onChange={(e) => setPasta(p.id, { on: e.target.checked })} className="h-4 w-4 accent-brand-500" />
-                      <span className="text-sm font-medium text-slate-100">{p.label}</span>
-                    </label>
+                <div key={p.id} className={`rounded-xl border transition ${st.on ? 'border-brand-400/40 bg-brand-500/[0.08]' : 'border-white/10 bg-white/[0.02]'}`}>
+                  <button
+                    type="button"
+                    disabled={!temModelos}
+                    onClick={() => setPasta(p.id, { on: !st.on })}
+                    className="flex w-full items-center gap-3 p-3 text-left active:scale-[0.99] disabled:opacity-50"
+                  >
+                    <span className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border transition ${st.on ? 'border-brand-400 bg-brand-500 text-white' : 'border-white/20 text-transparent'}`}>
+                      <Icon name="check" className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="flex-1 text-sm font-medium text-slate-100">{p.label}</span>
                     <span className="text-xs tabular-nums text-slate-500">{st.hora}</span>
-                  </div>
+                  </button>
                   {st.on && temModelos && (
-                    <div className="mt-2.5">
-                      <Select value={st.modeloId} onChange={(v) => setPasta(p.id, { modeloId: v })} placeholder="Escolha a variação…"
-                        options={opts.map((m) => ({ value: m.id, label: semLabel(m) }))} />
+                    <div className="px-3 pb-3">
+                      <ModelPicker value={st.modeloId} onChange={(v) => setPasta(p.id, { modeloId: v })} placeholder="Escolha a variação…"
+                        titulo={`Aquecimento ${p.label}`} options={opts.map((m) => ({ value: m.id, label: semLabel(m), texto: m.texto }))} />
                     </div>
                   )}
                 </div>
@@ -264,8 +274,8 @@ export default function RotinaDia() {
                     </div>
                     <div>
                       <label className="label">Modelo</label>
-                      <Select value={pd.modeloId} onChange={(v) => setPedido(i, { modeloId: v })} placeholder="Texto…"
-                        options={MODELOS.pedido.map((m) => ({ value: m.id, label: m.label }))} />
+                      <ModelPicker value={pd.modeloId} onChange={(v) => setPedido(i, { modeloId: v })} placeholder="Texto…"
+                        titulo="Pedido" options={MODELOS.pedido.map((m) => ({ value: m.id, label: m.label, texto: m.texto }))} />
                     </div>
                   </div>
                   <div>
@@ -321,8 +331,8 @@ export default function RotinaDia() {
                   </div>
                   <div>
                     <label className="label">Modelo</label>
-                    <Select value={e.modeloId} onChange={(v) => setEntrada(i, { modeloId: v })} placeholder="Escolha o texto…"
-                      options={MODELOS.entrada.map((m) => ({ value: m.id, label: m.label }))} />
+                    <ModelPicker value={e.modeloId} onChange={(v) => setEntrada(i, { modeloId: v })} placeholder="Escolha o texto…"
+                      titulo="Entrada" options={MODELOS.entrada.map((m) => ({ value: m.id, label: m.label, texto: aplicarSlot(m.texto, e.slot) }))} />
                   </div>
                 </div>
               ))}

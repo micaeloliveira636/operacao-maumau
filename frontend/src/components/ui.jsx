@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   STATUS, TONE_CLASSES, CATEGORIA_COR, CATEGORIA_LABEL,
 } from '../lib/constants';
@@ -6,26 +7,50 @@ import { iniciais } from '../lib/format';
 import { Icon } from './Icon';
 
 /**
- * Select customizado (substitui o <select> nativo "feio").
- * options: array de { value, label } ou de strings.
- * Dropdown com animação de abertura, hover e check no item ativo.
+ * Select customizado. O painel é renderizado num PORTAL (document.body) e
+ * posicionado com position:fixed — assim ele escapa do stacking context dos
+ * cards (que usam backdrop-blur) e NÃO fica transparente/atrás do conteúdo.
  */
 export function Select({ value, onChange, options = [], placeholder = 'Selecione…', className = '', disabled }) {
   const [aberto, setAberto] = useState(false);
-  const ref = useRef(null);
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
   const opts = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
   const atual = opts.find((o) => String(o.value) === String(value));
+
+  const medir = () => {
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setPos({ left: r.left, top: r.bottom + 6, width: r.width });
+  };
+
+  function toggle() {
+    if (disabled) return;
+    if (!aberto) medir();
+    setAberto((a) => !a);
+  }
+
+  useLayoutEffect(() => {
+    if (aberto) medir();
+  }, [aberto]);
 
   useEffect(() => {
     if (!aberto) return;
     const onDoc = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setAberto(false);
+      if (btnRef.current?.contains(e.target) || panelRef.current?.contains(e.target)) return;
+      setAberto(false);
     };
+    const fechar = () => setAberto(false);
     const onKey = (e) => e.key === 'Escape' && setAberto(false);
     document.addEventListener('mousedown', onDoc);
+    window.addEventListener('scroll', fechar, true);
+    window.addEventListener('resize', fechar);
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('scroll', fechar, true);
+      window.removeEventListener('resize', fechar);
       document.removeEventListener('keydown', onKey);
     };
   }, [aberto]);
@@ -36,12 +61,13 @@ export function Select({ value, onChange, options = [], placeholder = 'Selecione
   }
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={btnRef}
         type="button"
         disabled={disabled}
-        onClick={() => setAberto((a) => !a)}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-ink-900/70 px-3.5 py-2.5 text-left text-[15px] transition-all duration-200 sm:text-sm
+        onClick={toggle}
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-ink-900 px-3.5 py-2.5 text-left text-[15px] transition-all duration-200 sm:text-sm
           ${aberto ? 'border-brand-400/60 ring-2 ring-brand-400/25' : 'border-white/10 hover:border-white/20'}
           ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
       >
@@ -54,8 +80,12 @@ export function Select({ value, onChange, options = [], placeholder = 'Selecione
         />
       </button>
 
-      {aberto && (
-        <div className="animate-fade-down absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-64 overflow-auto rounded-xl border border-white/10 bg-ink-850/95 p-1.5 shadow-2xl backdrop-blur-xl">
+      {aberto && pos && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: 'fixed', left: pos.left, top: pos.top, width: pos.width, maxHeight: '15rem' }}
+          className="animate-fade-down z-[120] overflow-auto rounded-xl border border-white/15 bg-[#1b1b23] p-1.5 shadow-2xl ring-1 ring-black/50"
+        >
           {opts.length === 0 && <p className="px-3 py-2 text-sm text-slate-500">Sem opções.</p>}
           {opts.map((o) => {
             const on = String(o.value) === String(value);
@@ -65,16 +95,86 @@ export function Select({ value, onChange, options = [], placeholder = 'Selecione
                 type="button"
                 onClick={() => escolher(o.value)}
                 className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-[15px] transition sm:text-sm active:scale-[0.98]
-                  ${on ? 'bg-brand-500/15 text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'}`}
+                  ${on ? 'bg-brand-500/20 text-white' : 'text-slate-200 hover:bg-white/[0.07]'}`}
               >
                 <span className="min-w-0 flex-1 truncate">{o.label}</span>
                 {on && <Icon name="check" className="h-4 w-4 flex-none text-brand-300" />}
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
+  );
+}
+
+/**
+ * Seletor de MODELO de texto: abre um painel (bottom-sheet no mobile) com o
+ * TEXTO COMPLETO de cada opção — como as pastas do SendFlow. options:
+ * [{ value, label, texto }].
+ */
+export function ModelPicker({ value, onChange, options = [], placeholder = 'Escolher texto…', titulo = 'Escolher texto', disabled }) {
+  const [open, setOpen] = useState(false);
+  const atual = options.find((o) => String(o.value) === String(value));
+
+  useEffect(() => {
+    if (!open) return;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = ''; document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen(true)}
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-ink-900 px-3.5 py-2.5 text-left text-[15px] transition sm:text-sm
+          ${disabled ? 'cursor-not-allowed opacity-50 border-white/10' : 'border-white/10 hover:border-white/20'}`}
+      >
+        <span className={`min-w-0 flex-1 truncate ${atual ? 'text-slate-100' : 'text-slate-500'}`}>
+          {atual ? atual.label : placeholder}
+        </span>
+        <Icon name="chevronDown" className="h-4 w-4 flex-none text-slate-400" />
+      </button>
+
+      {open && createPortal(
+        <div className="fixed inset-0 z-[130] flex items-end justify-center sm:items-center sm:p-4">
+          <div className="absolute inset-0 bg-black/70 animate-fade-in" onClick={() => setOpen(false)} />
+          <div className="relative flex max-h-[85vh] w-full max-w-lg animate-scale-in flex-col rounded-t-2xl border border-white/10 bg-[#141419] sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <h3 className="text-base font-semibold text-slate-100">{titulo}</h3>
+              <button onClick={() => setOpen(false)} className="link-quiet -mr-1 p-1"><Icon name="x" className="h-5 w-5" /></button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
+              {options.length === 0 && <p className="px-2 py-4 text-sm text-slate-500">Sem opções.</p>}
+              {options.map((o) => {
+                const on = String(o.value) === String(value);
+                return (
+                  <button
+                    key={String(o.value)}
+                    type="button"
+                    onClick={() => { onChange?.(o.value); setOpen(false); }}
+                    className={`block w-full rounded-xl border p-3 text-left transition active:scale-[0.99]
+                      ${on ? 'border-brand-400/50 bg-brand-500/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'}`}
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{o.label}</span>
+                      {on && <Icon name="check" className="h-4 w-4 flex-none text-brand-300" />}
+                    </div>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-snug text-slate-100">{o.texto}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
