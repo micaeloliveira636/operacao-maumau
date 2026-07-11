@@ -8,6 +8,7 @@ import { formatarData } from '../lib/format';
 import { StatusBadge, CategoriaTag, LoadingScreen, EmptyState, Modal, Spinner } from '../components/ui';
 import { WhatsappPreview } from '../components/WhatsappPreview';
 import { ArquivoUploader } from '../components/ArquivoUploader';
+import { uploadArquivo } from '../lib/upload';
 import { SuccessOverlay } from '../components/SuccessOverlay';
 import { Icon } from '../components/Icon';
 
@@ -119,6 +120,16 @@ export default function DemandaDetalhe() {
     }
   }
 
+  async function salvarSlots(novosSlots) {
+    try {
+      const { demanda: upd } = await api.patch(`/demandas/${id}`, { slots: novosSlots });
+      setDemanda(upd);
+      toast.sucesso('Espaços atualizados');
+    } catch (err) {
+      toast.erro(err.message);
+    }
+  }
+
   async function salvarArquivo(patch) {
     try {
       const { arquivo } = await api.patch(`/arquivos/${editArq.id}`, patch);
@@ -205,6 +216,7 @@ export default function DemandaDetalhe() {
 
   const totalHorarios = (demanda.horarios || []).length;
   const proximaOrdem = arquivos.length;
+  const temSlots = Array.isArray(demanda.slots) && demanda.slots.length > 0;
   const arquivosAprovados = arquivos.filter((a) => a.status === 'aprovado').length;
   const midiasUsaveis = autoGerida
     ? arquivos.filter((a) => a.status !== 'rejeitado').length
@@ -288,7 +300,19 @@ export default function DemandaDetalhe() {
         </div>
       )}
 
-      {/* Arquivos */}
+      {/* Feedbacks: espaços nomeados (slots) */}
+      {temSlots ? (
+        <SlotsSection
+          demanda={demanda}
+          arquivos={arquivos}
+          podeSubir={podeEditar}
+          podeEditar={isAdmin && !['agendado', 'concluido'].includes(demanda.status)}
+          onEnviado={(arq) => setArquivos((a) => [...a.filter((x) => x.ordem !== arq.ordem), arq])}
+          onDeletar={deletarArquivo}
+          onSalvarSlots={salvarSlots}
+        />
+      ) : (
+      /* Arquivos */
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-200">
@@ -332,6 +356,7 @@ export default function DemandaDetalhe() {
           </div>
         )}
       </div>
+      )}
 
       {/* Payload de agendamento */}
       {payload && (
@@ -510,6 +535,112 @@ function PreviewAgendamentoModal({ plano, agendando, onClose, onConfirmar }) {
   );
 }
 
+// Seção de espaços nomeados (feedbacks): 1 demanda com vários slots.
+function SlotsSection({ demanda, arquivos, podeSubir, podeEditar, onEnviado, onDeletar, onSalvarSlots }) {
+  const toast = useToast();
+  const slots = [...(demanda.slots || [])].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  const arqPorOrdem = new Map(arquivos.map((a) => [a.ordem, a]));
+  const [legendas, setLegendas] = useState(() => Object.fromEntries(slots.map((s) => [s.ordem, s.legenda || ''])));
+  const [subindo, setSubindo] = useState(null);
+
+  useEffect(() => {
+    setLegendas(Object.fromEntries((demanda.slots || []).map((s) => [s.ordem, s.legenda || ''])));
+  }, [demanda.slots]);
+
+  const prontos = slots.filter((s) => (s.tipo === 'texto' ? String(legendas[s.ordem] || '').trim() : arqPorOrdem.has(s.ordem))).length;
+
+  async function subir(slot, file) {
+    if (!file) return;
+    setSubindo(slot.ordem);
+    try {
+      const arq = await uploadArquivo({ demandaId: demanda.id, file, ordem: slot.ordem, horario: slot.horario });
+      onEnviado?.(arq);
+    } catch (err) {
+      toast.erro(err.message || 'Falha no upload');
+    } finally {
+      setSubindo(null);
+    }
+  }
+
+  function salvarLegenda(ordem) {
+    onSalvarSlots?.(slots.map((s) => (s.ordem === ordem ? { ...s, legenda: legendas[ordem] } : s)));
+  }
+
+  return (
+    <div>
+      <h2 className="mb-3 text-sm font-semibold text-slate-200">
+        Espaços <span className="text-slate-500">({prontos}/{slots.length})</span>
+      </h2>
+      <div className="space-y-3">
+        {slots.map((slot) => {
+          const arq = arqPorOrdem.get(slot.ordem);
+          const ehTexto = slot.tipo === 'texto';
+          const mudou = (legendas[slot.ordem] || '') !== (slot.legenda || '');
+          return (
+            <div key={slot.ordem} className="card card-pad">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-sm font-medium text-slate-100">
+                  {slot.nome} <span className="text-slate-500">· {String(slot.horario).replace(':', 'h')}</span>
+                </p>
+                <span className={`chip ${ehTexto ? 'border-brand-400/30 bg-brand-500/10 text-brand-200' : 'border-white/10 bg-white/5 text-slate-400'}`}>
+                  {ehTexto ? 'texto' : 'mídia'}
+                </span>
+              </div>
+
+              {!ehTexto && (
+                <div className="mb-2">
+                  {arq ? (
+                    <div className="relative overflow-hidden rounded-xl border border-white/10">
+                      {arq.tipo === 'video' ? (
+                        <video src={arq.cloudinaryUrl} className="h-40 w-full object-cover" muted playsInline controls preload="metadata" />
+                      ) : (
+                        <img src={arq.cloudinaryUrl} alt="" className="h-40 w-full object-cover" loading="lazy" />
+                      )}
+                      {podeSubir && (
+                        <button onClick={() => onDeletar?.(arq.id)} className="absolute right-2 top-2 rounded-md bg-black/60 p-1.5 text-rose-300 backdrop-blur">
+                          <Icon name="trash" className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ) : podeSubir ? (
+                    <label className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-white/10 bg-white/[0.015] py-6 text-center transition hover:border-brand-400/40 ${subindo === slot.ordem ? 'opacity-60' : ''}`}>
+                      <input type="file" accept="image/*,video/*" className="hidden" disabled={subindo != null}
+                        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; subir(slot, f); }} />
+                      {subindo === slot.ordem ? <Spinner className="h-5 w-5 text-brand-300" /> : <Icon name="upload" className="h-5 w-5 text-brand-300" />}
+                      <span className="text-xs text-slate-400">{subindo === slot.ordem ? 'Enviando…' : 'Enviar mídia'}</span>
+                    </label>
+                  ) : (
+                    <p className="text-xs text-slate-500">Aguardando mídia.</p>
+                  )}
+                </div>
+              )}
+
+              {podeEditar || ehTexto ? (
+                <div>
+                  <textarea
+                    className="input min-h-[64px] resize-y"
+                    value={legendas[slot.ordem] || ''}
+                    disabled={!podeEditar}
+                    onChange={(e) => setLegendas((l) => ({ ...l, [slot.ordem]: e.target.value }))}
+                    placeholder={ehTexto ? 'Texto da mensagem' : 'Legenda (opcional)'}
+                  />
+                  {podeEditar && mudou && (
+                    <button onClick={() => salvarLegenda(slot.ordem)} className="btn-ghost mt-1.5 px-2.5 py-1 text-xs">
+                      <Icon name="check" className="h-3.5 w-3.5" /> Salvar legenda
+                    </button>
+                  )}
+                </div>
+              ) : (
+                slot.legenda && <p className="whitespace-pre-wrap text-xs text-slate-400">{slot.legenda}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Info({ icon, label, valor }) {
   return (
     <div>
@@ -581,7 +712,10 @@ function ActionBar({
   }
 
   if (st === 'em_andamento' || st === 'rejeitado') {
-    const pronto = arquivos.length === totalHorarios && arquivos.length > 0;
+    const midiaSlots = Array.isArray(demanda.slots) && demanda.slots.length
+      ? demanda.slots.filter((s) => s.tipo !== 'texto').length
+      : totalHorarios;
+    const pronto = arquivos.length >= midiaSlots && (midiaSlots > 0);
     btns.push(
       <button key="enviar" onClick={onEnviar} disabled={acao || !pronto} className="btn-primary">
         <Icon name="send" className="h-4 w-4" /> Enviar para aprovação
@@ -590,7 +724,7 @@ function ActionBar({
     if (!pronto)
       btns.push(
         <span key="hint" className="self-center text-xs text-slate-500">
-          {arquivos.length}/{totalHorarios} mídias
+          {arquivos.length}/{midiaSlots} mídias
         </span>
       );
   }

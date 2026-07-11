@@ -35,7 +35,63 @@ function montarScheduledTo(dataAlvo, horario) {
  * Aplica as regras e devolve o PLANO de envios (sem chamar o SendFlow).
  * Cada item = uma mensagem (uma chamada separada).
  */
+/**
+ * PLANO POR SLOTS (feedbacks): a demanda tem espaços nomeados. Cada slot vira
+ * uma mensagem — texto (legenda fixa) ou mídia (arquivo daquela ordem).
+ */
+function montarPlanoSlots(demanda, arquivos) {
+  const itens = [];
+  const avisos = [];
+  const campanhas = (demanda.campanhasDestino || []).map((nome, i) => ({
+    nome,
+    releaseId: (demanda.releaseIds || [])[i] || null,
+  }));
+  const shippingSpeed = demanda.velocidade || 'slow';
+  const mentionAll = Boolean(demanda.mencionar);
+  const autoGerida = ehAutoGerida(demanda);
+
+  const porOrdem = new Map();
+  for (const a of arquivos) {
+    const ok = autoGerida ? a.status !== 'rejeitado' : a.status === 'aprovado';
+    if (ok) porOrdem.set(a.ordem, a);
+  }
+
+  const slots = [...(demanda.slots || [])].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  for (const slot of slots) {
+    if (!slot.horario) { avisos.push(`${slot.nome || 'Espaço'}: sem horário — pulado`); continue; }
+    const scheduledTo = montarScheduledTo(demanda.dataAlvo, slot.horario);
+    const ehTexto = slot.tipo === 'texto';
+    let tipo, url, arquivoId, legenda;
+
+    if (ehTexto) {
+      legenda = String(slot.legenda || '').replace(/\{link\}/g, '').trim();
+      if (!legenda) { avisos.push(`${slot.nome}: texto vazio — pulado`); continue; }
+      tipo = 'text'; url = null; arquivoId = null;
+    } else {
+      const arq = porOrdem.get(slot.ordem);
+      if (!arq) { avisos.push(`${slot.nome} (${slot.horario}): sem mídia — pulado`); continue; }
+      tipo = arq.tipo === 'video' ? 'video' : 'image';
+      url = arq.cloudinaryUrl;
+      arquivoId = arq.id;
+      legenda = String(slot.legenda || arq.legendaCustom || '').trim();
+    }
+
+    for (const camp of campanhas) {
+      if (!camp.releaseId) { avisos.push(`Campanha ${camp.nome} sem releaseId — pulado`); continue; }
+      itens.push({
+        arquivoId, ordem: slot.ordem, horario: slot.horario, campanha: camp.nome,
+        releaseId: camp.releaseId, variante: `slot${slot.ordem}`, tipo, url, legenda,
+        shippingSpeed, mentionAll, scheduledTo,
+      });
+    }
+  }
+  return { itens, avisos };
+}
+
 function montarPlano(demanda, arquivos) {
+  if (Array.isArray(demanda.slots) && demanda.slots.length) {
+    return montarPlanoSlots(demanda, arquivos);
+  }
   const itens = [];
   const avisos = [];
 

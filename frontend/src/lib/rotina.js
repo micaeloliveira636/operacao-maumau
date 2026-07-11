@@ -82,27 +82,32 @@ function feedbackFinalId(entradaHora, sistemaNovo, weekday, ehUltimaDom) {
   return 'fb-ult-20h15';
 }
 
-// Gera os blocos de feedback do dia (atribuídos depois à Giselle).
-// Entrada: 5 msgs a cada 15min (1ª e 5ª com texto fixo; 2/3/4 em branco).
-// Lara: 2 msgs (+30/+60) após cada pedido de 13h/15h/19h.
+// Gera os GRUPOS de feedback do dia — 1 grupo = 1 demanda com vários espaços
+// (slots) nomeados, pra Giselle preencher tudo num lugar só.
+// Entrada: 5 slots a cada 15min (1º e 5º são TEXTO fixo; 2/3/4 são MÍDIA).
+// Lara: 2 slots MÍDIA (+30/+60) após cada pedido de 13h/15h/19h.
 function montarFeedbacks(base, weekday) {
-  const fb = [];
+  const grupos = [];
   base.entradas.forEach((e, idx) => {
     const ehUltimaDom = weekday === 0 && idx === base.entradas.length - 1;
-    [15, 30, 45, 60, 75].forEach((off, i) => {
+    const slots = [15, 30, 45, 60, 75].map((off, i) => {
       let legendaId = '';
-      if (i === 0) legendaId = 'fb-primeiro';
-      else if (i === 4) legendaId = feedbackFinalId(e.hora, base.sistemaNovo, weekday, ehUltimaDom);
-      fb.push({ categoria: 'feedback-entrada', hora: addMin(e.hora, off), legendaId });
+      let tipo = 'midia';
+      if (i === 0) { legendaId = 'fb-primeiro'; tipo = 'texto'; }
+      else if (i === 4) { legendaId = feedbackFinalId(e.hora, base.sistemaNovo, weekday, ehUltimaDom); tipo = 'texto'; }
+      return { ordem: i, nome: `Feedback ${i + 1}`, horario: addMin(e.hora, off), legendaId, tipo };
     });
+    grupos.push({ categoria: 'feedback-entrada', titulo: `Feedbacks entrada ${e.hora}`, slots });
   });
   for (const pd of base.pedidos) {
     if (['13:00', '15:00', '19:00'].includes(pd.hora)) {
-      fb.push({ categoria: 'feedback-lara', hora: addMin(pd.hora, 30), legendaId: '' });
-      fb.push({ categoria: 'feedback-lara', hora: addMin(pd.hora, 60), legendaId: '' });
+      const slots = [30, 60].map((off, i) => ({
+        ordem: i, nome: `Feedback lara ${i + 1}`, horario: addMin(pd.hora, off), legendaId: '', tipo: 'midia',
+      }));
+      grupos.push({ categoria: 'feedback-lara', titulo: `Feedbacks lara ${pd.hora}`, slots });
     }
   }
-  return fb.sort((a, b) => a.hora.localeCompare(b.hora));
+  return grupos;
 }
 
 const NOME_DIA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];

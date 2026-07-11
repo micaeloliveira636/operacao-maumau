@@ -60,10 +60,13 @@ export default function RotinaDia() {
     setEntradas(r.entradas);
     const fbModelos = MODELOS['feedback-entrada'] || [];
     setFeedbacks(
-      (r.feedbacks || []).map((f) => ({
-        categoria: f.categoria,
-        hora: f.hora,
-        legenda: fbModelos.find((m) => m.id === f.legendaId)?.texto || '',
+      (r.feedbacks || []).map((g) => ({
+        categoria: g.categoria,
+        titulo: g.titulo,
+        slots: g.slots.map((s) => ({
+          ordem: s.ordem, nome: s.nome, horario: s.horario, tipo: s.tipo,
+          legenda: fbModelos.find((m) => m.id === s.legendaId)?.texto || '',
+        })),
       }))
     );
     toast.sucesso(`Roteiro de ${nomeDoDia(dataAlvo)} preenchido${r.sistemaNovo ? ' (sistema novo)' : ''}`);
@@ -85,10 +88,8 @@ export default function RotinaDia() {
   const addEntrada = () => setEntradas((e) => [...e, { hora: '', slot: SLOTS[0], modeloId: '' }]);
   const delEntrada = (i) => setEntradas((e) => e.filter((_, idx) => idx !== i));
 
-  // feedbacks
-  const setFeedback = (i, patch) => setFeedbacks((f) => f.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
-  const addFeedback = () => setFeedbacks((f) => [...f, { categoria: 'feedback-lara', hora: '', legenda: '' }]);
-  const delFeedback = (i) => setFeedbacks((f) => f.filter((_, idx) => idx !== i));
+  // feedbacks (grupos com espaços)
+  const delGrupo = (i) => setFeedbacks((f) => f.filter((_, idx) => idx !== i));
 
   const specs = useMemo(() => {
     const out = [];
@@ -130,12 +131,12 @@ export default function RotinaDia() {
         releaseIds: releasesDe(['ATIVOS 1', 'ATIVOS 2']), atribuidoA: user?.id, velocidade: 'normal',
       });
     }
-    for (const f of feedbacks) {
-      if (!f.hora || !feedbackResp) continue;
-      const label = FEEDBACKS.find((x) => x.value === f.categoria)?.label || 'Feedback';
+    for (const g of feedbacks) {
+      if (!feedbackResp || !g.slots?.length) continue;
       out.push({
-        titulo: `${label} ${f.hora}`, categoria: f.categoria, dataAlvo, horarios: [f.hora],
-        legenda: f.legenda || null,
+        titulo: g.titulo, categoria: g.categoria, dataAlvo,
+        horarios: g.slots.map((s) => s.horario),
+        slots: g.slots.map((s) => ({ ordem: s.ordem, nome: s.nome, horario: s.horario, legenda: s.legenda || '', tipo: s.tipo })),
         campanhasDestino: ['ATIVOS 1', 'ATIVOS 2'], releaseIds: releasesDe(['ATIVOS 1', 'ATIVOS 2']),
         atribuidoA: feedbackResp, velocidade: 'slow',
       });
@@ -340,16 +341,11 @@ export default function RotinaDia() {
           )}
         </div>
 
-        {/* Feedbacks */}
+        {/* Feedbacks — 1 demanda por grupo, com vários espaços dentro */}
         <div className="card card-pad space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="section-title">Feedbacks</h2>
-              <p className="mt-0.5 text-xs text-slate-500">Giselle sobe a mídia; você aprova, põe a legenda e agenda.</p>
-            </div>
-            <button type="button" onClick={addFeedback} className="btn-ghost px-2.5 py-1.5 text-xs">
-              <Icon name="plus" className="h-3.5 w-3.5" /> Feedback
-            </button>
+          <div>
+            <h2 className="section-title">Feedbacks</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Cada grupo é uma demanda só, com os espaços já nomeados. Giselle sobe a mídia em cada espaço; você agenda.</p>
           </div>
 
           <div>
@@ -359,24 +355,27 @@ export default function RotinaDia() {
           </div>
 
           {feedbacks.length === 0 ? (
-            <p className="text-xs text-slate-500">Nenhum feedback. Preencha pelo dia ou adicione manualmente.</p>
+            <p className="text-xs text-slate-500">Nenhum feedback. Toque em “Preencher pelo dia”.</p>
           ) : (
             <>
               <div className="space-y-2">
-                {feedbacks.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-2">
-                    <Select value={f.categoria} onChange={(v) => setFeedback(i, { categoria: v })} className="w-40 flex-none"
-                      options={FEEDBACKS.map((x) => ({ value: x.value, label: x.label }))} />
-                    <input type="time" className="input flex-none" style={{ width: '7.5rem' }} value={f.hora}
-                      onChange={(ev) => setFeedback(i, { hora: ev.target.value })} />
-                    <span className={`min-w-0 flex-1 truncate text-[11px] ${f.legenda ? 'text-emerald-300/80' : 'text-slate-500'}`}>
-                      {f.legenda ? 'legenda fixa' : 'legenda depois'}
-                    </span>
-                    <button type="button" onClick={() => delFeedback(i)} className="link-quiet flex-none p-1"><Icon name="trash" className="h-4 w-4" /></button>
-                  </div>
-                ))}
+                {feedbacks.map((g, i) => {
+                  const midia = g.slots.filter((s) => s.tipo === 'midia').length;
+                  const texto = g.slots.length - midia;
+                  return (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-100">{g.titulo}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {g.slots.length} espaço(s){midia ? ` · ${midia} mídia` : ''}{texto ? ` · ${texto} texto` : ''} · {g.slots.map((s) => s.horario).join(', ')}
+                        </p>
+                      </div>
+                      <button type="button" onClick={() => delGrupo(i)} className="link-quiet flex-none p-1"><Icon name="trash" className="h-4 w-4" /></button>
+                    </div>
+                  );
+                })}
               </div>
-              {!feedbackResp && feedbacks.length > 0 && (
+              {!feedbackResp && (
                 <p className="text-[11px] text-amber-300/80">Escolha o responsável para incluir os feedbacks no dia.</p>
               )}
             </>

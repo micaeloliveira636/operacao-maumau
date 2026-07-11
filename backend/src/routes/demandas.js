@@ -168,6 +168,7 @@ router.post('/rotina', requireAuth, requireAdmin, async (req, res) => {
         velocidade: d.velocidade || 'slow',
         linkPrincipal: d.linkPrincipal || null,
         linkDois: d.linkDois || null,
+        slots: Array.isArray(d.slots) ? d.slots : null,
       }).returning();
       criadas.push(nova);
 
@@ -219,7 +220,7 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
       'titulo', 'categoria', 'descricao', 'dataAlvo', 'horarios',
       'campanhasDestino', 'releaseIds', 'atribuidoA',
       'legenda', 'mencionar', 'velocidade', 'prioridade',
-      'linkPrincipal', 'linkDois',
+      'linkPrincipal', 'linkDois', 'slots',
     ];
 
     const updates = {};
@@ -291,20 +292,21 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Motivo de rejeição é obrigatório' });
     }
 
-    // Enviar pra aprovação: valida se tem arquivos suficientes
+    // Enviar pra aprovação: valida se tem mídias suficientes.
     if (novoStatus === 'enviado') {
       const files = await db
         .select()
         .from(arquivos)
         .where(eq(arquivos.demandaId, demanda.id));
 
-      if (files.length === 0) {
-        return res.status(400).json({ error: 'Demanda sem arquivos' });
-      }
+      // Com slots, só os espaços de MÍDIA precisam de arquivo (os de texto não).
+      const necessarias = Array.isArray(demanda.slots) && demanda.slots.length
+        ? demanda.slots.filter((s) => s.tipo !== 'texto').length
+        : (demanda.horarios || []).length;
 
-      if (files.length !== demanda.horarios.length) {
+      if (files.length < necessarias) {
         return res.status(400).json({
-          error: `Quantidade de arquivos (${files.length}) diferente dos horários (${demanda.horarios.length})`,
+          error: `Faltam mídias: ${files.length}/${necessarias}`,
         });
       }
     }
