@@ -1,4 +1,4 @@
-const { and, eq } = require('drizzle-orm');
+const { and, eq, gte, lte } = require('drizzle-orm');
 const { db } = require('../db');
 const { sendflowSchedules, automationJobs } = require('../db/schema');
 const sendflow = require('../utils/sendflow');
@@ -407,7 +407,92 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
   return { ok: sucesso, ...resultados, avisos };
 }
 
+/**
+ * RECONFERÊNCIA DE CHIPS: perto do horário de envio, checa se os chips da
+ * campanha mudaram (caíram/entraram) e, se sim, apaga as ações antigas e
+ * recria com os chips ATUAIS. Ideal rodar a cada ~5min via ping externo.
+ */
+async function reconferirChips({ janelaMin = 15 } = {}) {
+  if (!(await sendflow.estaConfigurado())) return { ok: false, error: 'SendFlow não configurado' };
+
+  const agora = new Date();
+  const limite = new Date(agora.getTime() + janelaMin * 60000);
+
+  const rows = await db
+    .select()
+    .from(sendflowSchedules)
+    .where(
+      and(
+        eq(sendflowSchedules.status, 'agendado'),
+        gte(sendflowSchedules.scheduledTo, agora),
+        lte(sendflowSchedules.scheduledTo, limite)
+      )
+    );
+
+  const cacheChips = new Map();
+  const res = { verificados: rows.length, reagendados: 0, semMudanca: 0, erros: [] };
+
+  for (const s of rows) {
+    let atuais;
+    try {
+      atuais = cacheChips.get(s.releaseId);
+      if (!atuais) {
+        atuais = await sendflow.buscarAccountIds(s.releaseId);
+        cacheChips.set(s.releaseId, atuais);
+      }
+    } catch (e) {
+      res.erros.push(`${s.releaseId}: ${e.message}`);
+      continue;
+    }
+
+    const antes = [...(s.accountIds || [])].map(String).sort().join(',');
+    const depois = [...atuais].map(String).sort().join(',');
+    if (antes === depois) { res.semMudanca += 1; continue; }
+
+    // mudou -> apaga ações antigas e recria com os chips atuais
+    const antigos = Array.isArray(s.resultJson?.actionIds)
+      ? s.resultJson.actionIds.filter(Boolean)
+      : (s.sendflowActionId ? [s.sendflowActionId] : []);
+    if (antigos.length) await sendflow.deletarAcoes(antigos).catch(() => {});
+
+    const scheduledTo = new Date(s.scheduledTo).toISOString();
+    const novos = [];
+    const falhas = [];
+    for (const accountId of atuais) {
+      const envio = await sendflow.agendarAcao({
+        tipo: s.tipoEnvio,
+        accountId,
+        releaseId: s.releaseId,
+        url: s.tipoEnvio === 'text' ? null : s.mensagemOuUrl,
+        mensagem: s.legenda || '',
+        scheduledTo,
+        shippingSpeed: s.velocidade || 'slow',
+        mentionAll: Boolean(s.mencionar),
+      });
+      if (envio.ok) novos.push(envio.actionId || null);
+      else falhas.push(`${accountId}: ${envio.error}`);
+    }
+
+    if (novos.length === 0) {
+      res.erros.push(`${s.releaseId} ${scheduledTo}: falha ao recriar`);
+      continue;
+    }
+
+    await db
+      .update(sendflowSchedules)
+      .set({
+        accountIds: atuais,
+        sendflowActionId: novos[0] || null,
+        resultJson: { actionIds: novos, falhasConta: falhas, reagendado: true, em: agora.toISOString() },
+      })
+      .where(eq(sendflowSchedules.id, s.id));
+    res.reagendados += 1;
+  }
+
+  return { ok: true, ...res };
+}
+
 module.exports = {
   montarPlano, montarPlanoTexto, executarAgendamento, executarAgendamentoTexto,
-  apagarProvisorios, montarLegenda, montarScheduledTo, ehAutoGerida,
+  apagarProvisorios, reconferirChips, montarLegenda, montarScheduledTo, ehAutoGerida,
 };

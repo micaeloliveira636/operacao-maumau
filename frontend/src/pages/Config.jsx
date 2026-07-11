@@ -186,6 +186,19 @@ function SendflowSettings() {
     }
   }
 
+  const [reconferindo, setReconferindo] = useState(false);
+  async function reconferir() {
+    setReconferindo(true);
+    try {
+      const r = await api.post('/demandas/reconferir-chips');
+      toast.sucesso(`Reconferência: ${r.verificados} envio(s), ${r.reagendados} reagendado(s), ${r.semMudanca} sem mudança`);
+    } catch (err) {
+      toast.erro(err.message);
+    } finally {
+      setReconferindo(false);
+    }
+  }
+
   if (!cfg) return null;
 
   return (
@@ -241,7 +254,13 @@ function SendflowSettings() {
               <button onClick={testar} disabled={testando} className="btn-ghost">
                 {testando ? <Spinner className="h-4 w-4" /> : <Icon name="refresh" className="h-4 w-4" />} Testar conexão
               </button>
+              <button onClick={reconferir} disabled={reconferindo} className="btn-ghost">
+                {reconferindo ? <Spinner className="h-4 w-4" /> : <Icon name="clock" className="h-4 w-4" />} Reconferir chips agora
+              </button>
             </div>
+            <p className="text-[11px] text-slate-500">
+              A reconferência roda sozinha via cron externo (a cada ~5min). Este botão força uma verificação manual dos envios das próximas horas.
+            </p>
           </div>
         </div>
       </div>

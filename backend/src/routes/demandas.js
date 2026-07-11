@@ -222,6 +222,18 @@ router.post('/rotina', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /demandas/reconferir-chips — dispara a reconferência manualmente (admin)
+router.post('/reconferir-chips', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const janelaMin = Number(req.body?.janelaMin) || 15;
+    const r = await agendador.reconferirChips({ janelaMin });
+    return res.json(r);
+  } catch (err) {
+    console.error('Erro ao reconferir chips:', err);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
 // PATCH /demandas/:id — editar (admin only)
 router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
