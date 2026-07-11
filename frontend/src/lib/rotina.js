@@ -34,7 +34,7 @@ const MEIO = (prefixo) => ({
   aquec: ['11h20', '12h', '18h', '21h'],
   pedidos: [
     { hora: '13:00', alvo: 'aquec', modeloId: 'ped-13h' },
-    { hora: '15:00', alvo: 'ativos', modeloId: 'ped-15h' },
+    { hora: '15:00', alvo: 'todos', modeloId: 'ped-15h' }, // regra fixa: 15h -> TODOS
     { hora: '19:00', alvo: 'aquec', modeloId: 'ped-19h' },
   ],
   entradas: [{ hora: '12:30' }, { hora: '18:30' }, { hora: '21:30' }],
@@ -50,7 +50,7 @@ const SAB_2 = {
   aquec: ['11h20', '12h', '18h', '21h'],
   pedidos: [
     { hora: '13:00', alvo: 'aquec', modeloId: 'ped-13h' },
-    { hora: '15:00', alvo: 'ativos', modeloId: 'ped-15h' },
+    { hora: '15:00', alvo: 'todos', modeloId: 'ped-15h' }, // regra fixa: 15h -> TODOS
   ],
   entradas: [{ hora: '18:30' }, { hora: '21:30' }],
   sistemaNovo: false,
