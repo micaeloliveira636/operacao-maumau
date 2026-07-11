@@ -406,7 +406,7 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
     if (erro) return res.status(erro).json({ error: msg });
 
     const autoGerida = agendador.ehAutoGerida(demanda);
-    const statusOk = ['aprovado', 'agendamento_pendente', 'erro_agendamento'].includes(demanda.status)
+    const statusOk = ['aprovado', 'agendamento_pendente', 'erro_agendamento', 'texto_agendado'].includes(demanda.status)
       || (autoGerida && demanda.status === 'em_andamento');
     if (!statusOk) {
       return res.status(400).json({ error: 'Demanda precisa estar aprovada para agendar' });
@@ -465,6 +465,45 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /demandas/:id/agendar-texto — agenda só o texto (provisório), pra travar
+// o horário antes da mídia. Depois, "agendar" com mídia troca automaticamente.
+router.post('/:id/agendar-texto', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const [demanda] = await db.select().from(demandas).where(eq(demandas.id, req.params.id)).limit(1);
+    if (!demanda) return res.status(404).json({ error: 'Demanda não encontrada' });
+
+    if (!demanda.legenda || !String(demanda.legenda).trim()) {
+      return res.status(400).json({ error: 'Demanda sem texto para agendar' });
+    }
+    if (['agendado', 'concluido', 'agendamento_pendente'].includes(demanda.status)) {
+      return res.status(400).json({ error: 'Demanda não está em estado para agendar texto' });
+    }
+
+    // remove provisórios antigos e recria
+    await agendador.apagarProvisorios(demanda.id);
+    const resultado = await agendador.executarAgendamentoTexto(demanda, req.user.id);
+
+    const [updated] = await db
+      .update(demandas)
+      .set({ status: resultado.ok ? 'texto_agendado' : demanda.status, updatedAt: new Date() })
+      .where(eq(demandas.id, demanda.id))
+      .returning();
+
+    await logActivity({
+      demandaId: demanda.id,
+      userId: req.user.id,
+      action: resultado.ok ? 'agendamento.texto' : 'agendamento.texto.erro',
+      metadata: { agendadas: resultado.agendadas, erros: resultado.erros },
+      ipAddress: req.ip,
+    });
+
+    return res.status(resultado.ok ? 200 : 400).json({ demanda: updated, resultado });
+  } catch (err) {
+    console.error('Erro ao agendar texto:', err);
+    return res.status(500).json({ error: 'Erro interno ao agendar texto' });
+  }
+});
+
 // POST /demandas/:id/cancelar-agendamento — apaga as ações no SendFlow e volta pra aprovado
 router.post('/:id/cancelar-agendamento', requireAuth, requireAdmin, async (req, res) => {
   try {
@@ -501,9 +540,11 @@ router.post('/:id/cancelar-agendamento', requireAuth, requireAdmin, async (req, 
         .set({ status: 'cancelado' })
         .where(eq(sendflowSchedules.id, s.id));
     }
+    // Auto-gerida volta pra produção (reabre uploader); com operador, pra aprovado.
+    const voltarPara = agendador.ehAutoGerida(demanda) ? 'em_andamento' : 'aprovado';
     const [updated] = await db
       .update(demandas)
-      .set({ status: 'aprovado', updatedAt: new Date() })
+      .set({ status: voltarPara, updatedAt: new Date() })
       .where(eq(demandas.id, demanda.id))
       .returning();
 

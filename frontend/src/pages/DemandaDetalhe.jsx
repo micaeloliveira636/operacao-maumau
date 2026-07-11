@@ -160,6 +160,21 @@ export default function DemandaDetalhe() {
     }
   }
 
+  async function agendarTexto() {
+    if (!confirm('Agendar só o texto agora? Quando a mídia for adicionada, o agendamento completo substitui automaticamente.')) return;
+    setAgendando(true);
+    try {
+      const { demanda: upd, resultado } = await api.post(`/demandas/${id}/agendar-texto`);
+      setDemanda(upd);
+      if (resultado?.ok) setOverlay(`Texto agendado (${resultado.agendadas} envio(s))`);
+      else toast.erro(`Falhou: ${(resultado?.erros || ['erro']).slice(0, 2).join(' | ')}`);
+    } catch (err) {
+      toast.erro(err.message || 'Erro ao agendar texto');
+    } finally {
+      setAgendando(false);
+    }
+  }
+
   async function cancelarAgendamento() {
     if (!confirm('Cancelar o agendamento? As ações serão apagadas no SendFlow.')) return;
     setAgendando(true);
@@ -258,6 +273,7 @@ export default function DemandaDetalhe() {
         onAprovar={() => mudarStatus('aprovado')}
         onRejeitar={() => setModalRejeitar(true)}
         onAgendar={abrirPreview}
+        onAgendarTexto={agendarTexto}
         agendando={agendando}
         onGerarPayload={gerarPayload}
         onCancelarAgendamento={cancelarAgendamento}
@@ -507,7 +523,7 @@ function Info({ icon, label, valor }) {
 
 function ActionBar({
   demanda, isAdmin, autoGerida, acao, arquivos, midiasUsaveis, agendando,
-  onEnviar, onAprovar, onRejeitar, onAgendar, onGerarPayload, onCancelarAgendamento, onConcluir,
+  onEnviar, onAprovar, onRejeitar, onAgendar, onAgendarTexto, onGerarPayload, onCancelarAgendamento, onConcluir,
 }) {
   const st = demanda.status;
   const totalHorarios = (demanda.horarios || []).length;
@@ -527,18 +543,38 @@ function ActionBar({
       );
     } else if (st !== 'concluido') {
       const podeAgendar = midiasUsaveis > 0;
+      const temTexto = Boolean(demanda.legenda && demanda.legenda.trim());
       btns.push(
         <button key="agendar" onClick={onAgendar} disabled={acao || agendando || !podeAgendar} className="btn-primary">
           {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="send" className="h-4 w-4" />}
-          {st === 'erro_agendamento' ? 'Tentar agendar novamente' : 'Agendar no SendFlow'}
+          {st === 'texto_agendado' ? 'Agendar completo (com mídia)' : st === 'erro_agendamento' ? 'Tentar agendar novamente' : 'Agendar no SendFlow'}
         </button>
       );
-      if (!podeAgendar)
+      // Agendar só o texto (provisório) — quando ainda não há mídia pronta.
+      if (temTexto && !podeAgendar && st !== 'texto_agendado') {
+        btns.push(
+          <button key="texto" onClick={onAgendarTexto} disabled={acao || agendando} className="btn-ghost">
+            <Icon name="clock" className="h-4 w-4" /> Agendar só o texto
+          </button>
+        );
+      }
+      if (st === 'texto_agendado') {
+        btns.push(
+          <button key="cancelar-texto" onClick={onCancelarAgendamento} disabled={acao || agendando} className="btn-danger">
+            {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="trash" className="h-4 w-4" />}
+            Cancelar texto
+          </button>,
+          <span key="hint-texto" className="self-center text-xs text-amber-300/80">
+            Texto agendado. Suba a mídia e agende o completo (ele substitui o texto).
+          </span>
+        );
+      } else if (!podeAgendar && !temTexto) {
         btns.push(
           <span key="hint" className="self-center text-xs text-slate-500">
             Envie ao menos uma mídia para agendar.
           </span>
         );
+      }
     }
     if (btns.length === 0) return null;
     return <div className="flex flex-wrap gap-2">{btns}</div>;

@@ -133,8 +133,77 @@ function montarPlano(demanda, arquivos) {
 }
 
 /**
- * Executa o plano: busca accountIds frescos por release, chama o SendFlow
- * uma vez por mensagem, aplica idempotência e salva cada schedule.
+ * PLANO DE TEXTO (provisório): agenda só a legenda como mensagem de texto,
+ * pra "reservar" o horário antes da mídia chegar. Depois, ao agendar de vez
+ * com a mídia, esses provisórios são apagados e recriados completos.
+ */
+function montarPlanoTexto(demanda) {
+  const itens = [];
+  const avisos = [];
+  const campanhas = (demanda.campanhasDestino || []).map((nome, i) => ({
+    nome,
+    releaseId: (demanda.releaseIds || [])[i] || null,
+  }));
+  const ehEntrada = demanda.categoria === 'entrada';
+  const ehPedido = demanda.categoria === 'pedido';
+  const shippingSpeed = ehEntrada ? 'normal' : demanda.velocidade || 'slow';
+  const mentionAll = ehPedido ? false : Boolean(demanda.mencionar);
+  const legendaBase = String(demanda.legenda || '').replace(/\{link\}/g, '').trim();
+  const horarios = (demanda.horarios || []).filter(Boolean);
+
+  if (!legendaBase) avisos.push('Demanda sem texto para agendar.');
+
+  for (const horario of horarios) {
+    const scheduledTo = montarScheduledTo(demanda.dataAlvo, horario);
+    for (const camp of campanhas) {
+      if (ehEntrada && norm(camp.nome) === AQUECIMENTO) {
+        avisos.push(`Entrada não vai para ${camp.nome} (regra) — pulado.`);
+        continue;
+      }
+      if (!camp.releaseId) {
+        avisos.push(`Campanha ${camp.nome} sem releaseId — pulado.`);
+        continue;
+      }
+      itens.push({
+        arquivoId: null, horario, campanha: camp.nome, releaseId: camp.releaseId,
+        variante: 'texto', tipo: 'text', url: null, legenda: legendaBase,
+        shippingSpeed, mentionAll, scheduledTo,
+      });
+    }
+  }
+  return { itens, avisos };
+}
+
+/** Apaga no SendFlow os agendamentos provisórios de texto de uma demanda. */
+async function apagarProvisorios(demandaId) {
+  const rows = await db
+    .select()
+    .from(sendflowSchedules)
+    .where(and(eq(sendflowSchedules.demandaId, demandaId), eq(sendflowSchedules.variante, 'texto')));
+  const ativos = rows.filter((r) => r.status !== 'cancelado');
+  const actionIds = [];
+  for (const s of ativos) {
+    const arr = Array.isArray(s.resultJson?.actionIds) ? s.resultJson.actionIds : [];
+    for (const a of arr) if (a) actionIds.push(a);
+    if (!arr.length && s.sendflowActionId) actionIds.push(s.sendflowActionId);
+  }
+  if (actionIds.length) await sendflow.deletarAcoes(actionIds).catch(() => {});
+  for (const s of ativos) {
+    await db.update(sendflowSchedules).set({ status: 'cancelado' }).where(eq(sendflowSchedules.id, s.id));
+  }
+  return actionIds.length;
+}
+
+/** Agenda só o texto (provisório). */
+async function executarAgendamentoTexto(demanda, userId) {
+  const { itens, avisos } = montarPlanoTexto(demanda);
+  if (itens.length === 0) return { ok: false, error: 'Nada a agendar (sem texto/campanhas)', avisos };
+  if (!(await sendflow.estaConfigurado())) return { ok: false, error: 'SendFlow não configurado (Ajustes)', avisos };
+  return executarItens(demanda, itens, avisos, userId, 'agendamento-texto');
+}
+
+/**
+ * Executa o plano com MÍDIA. Antes, apaga os provisórios de texto (troca).
  */
 async function executarAgendamento(demanda, arquivos, userId) {
   const { itens, avisos } = montarPlano(demanda, arquivos);
@@ -146,15 +215,27 @@ async function executarAgendamento(demanda, arquivos, userId) {
     return { ok: false, error: 'SendFlow não configurado (Ajustes)', avisos };
   }
 
+  // Troca: remove os agendamentos provisórios de texto desta demanda.
+  const trocados = await apagarProvisorios(demanda.id);
+  if (trocados) avisos.push(`${trocados} ação(ões) de texto provisório substituída(s).`);
+
+  return executarItens(demanda, itens, avisos, userId, 'agendamento');
+}
+
+/**
+ * Núcleo: busca accountIds frescos por release, chama o SendFlow uma vez por
+ * mensagem (por conta), aplica idempotência e salva cada schedule.
+ */
+async function executarItens(demanda, itens, avisos, userId, tipoJob) {
   // Cria o job de automação (idempotência de execução).
-  const idempotencyKey = `agendar:${demanda.id}:${demanda.updatedAt?.toISOString?.() || Date.now()}`;
+  const idempotencyKey = `${tipoJob}:${demanda.id}:${demanda.updatedAt?.toISOString?.() || Date.now()}`;
   let job;
   try {
     [job] = await db
       .insert(automationJobs)
       .values({
         demandaId: demanda.id,
-        type: 'agendamento',
+        type: tipoJob,
         payloadJson: { total: itens.length },
         status: 'processing',
         idempotencyKey,
@@ -168,22 +249,24 @@ async function executarAgendamento(demanda, arquivos, userId) {
   const resultados = { agendadas: 0, puladas: 0, erros: [] };
 
   for (const item of itens) {
-    // idempotência por mensagem
-    const jaExiste = await db
-      .select({ id: sendflowSchedules.id })
-      .from(sendflowSchedules)
-      .where(
-        and(
-          eq(sendflowSchedules.demandaId, demanda.id),
-          eq(sendflowSchedules.arquivoId, item.arquivoId),
-          eq(sendflowSchedules.releaseId, item.releaseId),
-          eq(sendflowSchedules.variante, item.variante)
+    // idempotência por mensagem (texto provisório não checa — pode recriar)
+    if (item.variante !== 'texto') {
+      const jaExiste = await db
+        .select({ id: sendflowSchedules.id })
+        .from(sendflowSchedules)
+        .where(
+          and(
+            eq(sendflowSchedules.demandaId, demanda.id),
+            eq(sendflowSchedules.arquivoId, item.arquivoId),
+            eq(sendflowSchedules.releaseId, item.releaseId),
+            eq(sendflowSchedules.variante, item.variante)
+          )
         )
-      )
-      .limit(1);
-    if (jaExiste.length && jaExiste[0]) {
-      resultados.puladas += 1;
-      continue;
+        .limit(1);
+      if (jaExiste.length && jaExiste[0]) {
+        resultados.puladas += 1;
+        continue;
+      }
     }
 
     // accountIds frescos (cacheados por release dentro desta execução)
@@ -264,4 +347,7 @@ async function executarAgendamento(demanda, arquivos, userId) {
   return { ok: sucesso, ...resultados, avisos };
 }
 
-module.exports = { montarPlano, executarAgendamento, montarLegenda, montarScheduledTo, ehAutoGerida };
+module.exports = {
+  montarPlano, montarPlanoTexto, executarAgendamento, executarAgendamentoTexto,
+  apagarProvisorios, montarLegenda, montarScheduledTo, ehAutoGerida,
+};

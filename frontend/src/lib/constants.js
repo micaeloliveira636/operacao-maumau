@@ -33,6 +33,7 @@ export const STATUS = {
   em_andamento: { label: 'Em andamento', tone: 'blue' },
   enviado: { label: 'Aguardando aprovação', tone: 'purple' },
   aprovado: { label: 'Aprovado', tone: 'green' },
+  texto_agendado: { label: 'Texto agendado', tone: 'amber' },
   agendamento_pendente: { label: 'Agendando', tone: 'amber' },
   agendado: { label: 'Agendado', tone: 'blue' },
   erro_agendamento: { label: 'Erro no agendamento', tone: 'rose' },
