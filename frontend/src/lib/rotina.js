@@ -45,6 +45,9 @@ const QUI = {
   pedidos: [{ hora: '15:00', alvo: 'todos', modeloId: 'ped-15h' }], // sem 13h/19h
   sistemaNovo: true,
 };
+// Quinta "modo segunda": quando dá problema com número, a quinta roda igual à
+// segunda (13h+15h+19h, 2 entradas 18h30/21h30) — só o bom dia é o da quinta.
+const QUI_SEG = { ...SEG, bomDiaPrefixo: 'bd-qui' };
 const SAB_2 = {
   bomDiaHora: '10:00', bomDiaPrefixo: 'bd-sab',
   aquec: ['11h20', '12h', '18h', '21h'],
@@ -113,10 +116,13 @@ function montarFeedbacks(base, weekday) {
 const NOME_DIA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 export const nomeDoDia = (dataISO) => NOME_DIA[diaDaSemana(dataISO)];
 
-// Monta o pré-preenchimento. sabadoModo: 2 | 3.
-export function montarRotina(dataISO, { sabadoModo = 2 } = {}) {
+// Monta o pré-preenchimento. sabadoModo: 2 | 3. quintaModo: 'normal' | 'segunda'.
+export function montarRotina(dataISO, { sabadoModo = 2, quintaModo = 'normal' } = {}) {
   const d = diaDaSemana(dataISO);
-  const base = d === 6 ? (sabadoModo === 3 ? SAB_3 : SAB_2) : POR_DIA[d];
+  let base;
+  if (d === 6) base = sabadoModo === 3 ? SAB_3 : SAB_2;
+  else if (d === 4) base = quintaModo === 'segunda' ? QUI_SEG : QUI;
+  else base = POR_DIA[d];
 
   const primeiroBomDia = (MODELOS['bom-dia'] || []).find((m) => m.id.startsWith(base.bomDiaPrefixo));
 

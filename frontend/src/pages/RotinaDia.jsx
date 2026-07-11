@@ -34,6 +34,7 @@ export default function RotinaDia() {
 
   const [dataAlvo, setDataAlvo] = useState(new Date().toISOString().slice(0, 10));
   const [sabadoModo, setSabadoModo] = useState(2);
+  const [quintaModo, setQuintaModo] = useState('normal');
   const [linkDia, setLinkDia] = useState({ principal: '', dois: '' });
   const [enviando, setEnviando] = useState(false);
   const [criadas, setCriadas] = useState(null);
@@ -47,6 +48,7 @@ export default function RotinaDia() {
 
   const setPasta = (id, patch) => setAquec((a) => ({ ...a, [id]: { ...a[id], ...patch } }));
   const ehSabado = diaDaSemana(dataAlvo) === 6;
+  const ehQuinta = diaDaSemana(dataAlvo) === 4;
 
   // responsável dos feedbacks começa no primeiro operador (ex.: Giselle)
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function RotinaDia() {
   }, [operadores, feedbackResp]);
 
   function preencher() {
-    const r = montarRotina(dataAlvo, { sabadoModo });
+    const r = montarRotina(dataAlvo, { sabadoModo, quintaModo });
     setBomDia(r.bomDia);
     setAquec(r.aquec);
     setPedidos(r.pedidos);
@@ -191,6 +193,24 @@ export default function RotinaDia() {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+          {ehQuinta && (
+            <div>
+              <label className="label">Modo da quinta</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { v: 'normal', t: 'Normal', s: '1 pedido · 3 entradas' },
+                  { v: 'segunda', t: 'Como segunda', s: '3 pedidos · 2 entradas' },
+                ].map((o) => (
+                  <button key={o.v} type="button" onClick={() => setQuintaModo(o.v)}
+                    className={`rounded-xl border px-3 py-2 text-left text-sm transition ${quintaModo === o.v ? 'border-brand-400/50 bg-brand-500/15 text-white' : 'border-white/10 bg-white/[0.02] text-slate-300'}`}>
+                    <span className="block font-medium">{o.t}</span>
+                    <span className="block text-[11px] text-slate-400">{o.s}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Use "como segunda" quando houver problema com número.</p>
             </div>
           )}
           <button type="button" onClick={preencher} className="btn-primary w-full sm:w-auto">
