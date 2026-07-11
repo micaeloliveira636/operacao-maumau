@@ -475,10 +475,90 @@ const BOM_DIA = [
   { id: 'bd-dom-2', label: 'Domingo — 2', texto: '*Bom dia família, um domingo abençoado pra todos nós ❤️🙏🏻*' },
 ];
 
+// Feedbacks pós-validada: o 1º é fixo; o último varia por horário/tipo de dia.
+const FEEDBACK_ENTRADA = [
+  {
+    id: 'fb-primeiro',
+    label: 'Primeiro — Mandem seus feedbacks',
+    texto: '*Mandem seus feedbacks família✅*',
+  },
+  {
+    id: 'fb-ult-14h15',
+    label: 'Último — dia normal (~14h15)',
+    texto: `Brecha no sistema segue on familia✅
+
+*🚨Mas ela vai encerrar por volta das 14h15*
+
+APROVEITEM ANTES QUE ENCERRE!`,
+  },
+  {
+    id: 'fb-ult-20h15',
+    label: 'Último — dia normal (~20h15)',
+    texto: `Vulnerabilidade no sistema segue on familia✅
+
+*🚨Mas ela vai encerrar por volta das 20h15*
+
+APROVEITEM ANTES QUE ENCERRE!`,
+  },
+  {
+    id: 'fb-ult-23h20',
+    label: 'Último — dia normal (~23h20)',
+    texto: `Vulnerabilidade no sistema segue on familia✅
+
+*🚨Mas ela vai encerrar por volta das 23h20*
+
+APROVEITEM ANTES QUE ENCERRE!`,
+  },
+  {
+    id: 'fb-ult-sn-14h17',
+    label: 'Último — sistema novo (~14h17)',
+    texto: `Brecha no sistema novo segue on familia✅
+
+*🚨Mas ela vai encerrar por volta das 14h17*
+
+APROVEITEM ANTES QUE ENCERRE!`,
+  },
+  {
+    id: 'fb-ult-sn-20h17',
+    label: 'Último — sistema novo (~20h17)',
+    texto: `Vulnerabilidade no sistema novo segue on familia✅
+
+*🚨Mas ela vai encerrar por volta das 20h17*
+
+APROVEITEM ANTES QUE ENCERRE!`,
+  },
+  {
+    id: 'fb-ult-sn-23h21',
+    label: 'Último — sistema novo (~23h21)',
+    texto: `Vulnerabilidade no sistema novo segue on familia✅
+
+*🚨Mas ela vai encerrar por volta das 23h21*
+
+APROVEITEM ANTES QUE ENCERRE!`,
+  },
+  {
+    id: 'fb-ult-dom-20h20',
+    label: 'Último — domingo, 2ª entrada (~20h20)',
+    texto: `Última vulnerabilidade no sistema segue on familia✅
+
+*🚨Mas ela vai encerrar por volta das 20h20*
+
+APROVEITEM ANTES QUE ENCERRE!`,
+  },
+  {
+    id: 'fb-ult-dom-14h13',
+    label: 'Último — domingo 13h45 (~14h13)',
+    texto: `*🚨Segundo o software essa brecha encerra por volta das 14h13!*
+
+APROVEITEM!`,
+  },
+];
+
 export const MODELOS = {
   entrada: ENTRADA,
   pedido: PEDIDO,
   aquecimento: AQUECIMENTO,
+  'feedback-entrada': FEEDBACK_ENTRADA,
   'bom-dia': BOM_DIA,
 };
 

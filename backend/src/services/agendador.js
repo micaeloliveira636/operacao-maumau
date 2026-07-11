@@ -68,8 +68,10 @@ function montarPlano(demanda, arquivos) {
     // velocidade: entrada = normal; resto = lento (fallback demanda.velocidade)
     const shippingSpeed = ehEntrada ? 'normal' : demanda.velocidade || 'slow';
 
-    // menção: entrada = sim; pedido (de lara) = jamais; resto = flag da demanda
-    const mentionAll = ehEntrada ? true : ehPedido ? false : Boolean(demanda.mencionar);
+    // menção: SEMPRE opcional e desligada por padrão (90% dos envios são
+    // mídia+texto juntos, sem menção). Pedido de lara nunca menciona.
+    // Só liga quando a demanda marca `mencionar` explicitamente.
+    const mentionAll = ehPedido ? false : Boolean(demanda.mencionar);
 
     const scheduledTo = montarScheduledTo(demanda.dataAlvo, arq.horario);
     const tipo = arq.tipo === 'video' ? 'video' : 'image';
