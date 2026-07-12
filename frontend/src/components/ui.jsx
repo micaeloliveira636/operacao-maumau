@@ -42,14 +42,20 @@ export function Select({ value, onChange, options = [], placeholder = 'Selecione
       setAberto(false);
     };
     const fechar = () => setAberto(false);
+    // Fecha ao rolar A PÁGINA (o painel é position:fixed e descolaria do botão),
+    // mas ignora o scroll de DENTRO da própria lista — senão não dá pra rolar.
+    const onScroll = (e) => {
+      if (panelRef.current?.contains(e.target)) return;
+      setAberto(false);
+    };
     const onKey = (e) => e.key === 'Escape' && setAberto(false);
     document.addEventListener('mousedown', onDoc);
-    window.addEventListener('scroll', fechar, true);
+    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', fechar);
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDoc);
-      window.removeEventListener('scroll', fechar, true);
+      window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', fechar);
       document.removeEventListener('keydown', onKey);
     };
