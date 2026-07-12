@@ -67,7 +67,8 @@ export default function RotinaDia() {
       (r.feedbacks || []).map((g) => ({
         categoria: g.categoria,
         titulo: g.titulo,
-        campanhas: ['ATIVOS 1', 'ATIVOS 2'],
+        // Feedbacks de lara vão para AQUECIMENTO; feedbacks de entrada, para os ATIVOS.
+        campanhas: g.categoria === 'feedback-lara' ? ['AQUECIMENTO'] : ['ATIVOS 1', 'ATIVOS 2'],
         slots: g.slots.map((s) => ({
           ordem: s.ordem, nome: s.nome, horario: s.horario, tipo: s.tipo,
           legenda: fbModelos.find((m) => m.id === s.legendaId)?.texto || '',
@@ -443,7 +444,7 @@ export default function RotinaDia() {
                         <button type="button" onClick={() => delGrupo(i)} className="link-quiet flex-none p-1"><Icon name="trash" className="h-4 w-4" /></button>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {['ATIVOS 1', 'ATIVOS 2'].map((nome) => {
+                        {['AQUECIMENTO', 'ATIVOS 1', 'ATIVOS 2'].map((nome) => {
                           const on = (g.campanhas || []).includes(nome);
                           return (
                             <button key={nome} type="button" onClick={() => toggleCampFeedback(i, nome)}
