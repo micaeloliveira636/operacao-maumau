@@ -492,8 +492,8 @@ function PreviewAgendamentoModal({ plano, agendando, onClose, onConfirmar }) {
   return (
     <Modal open={!!plano} onClose={onClose} titulo="Confirmar agendamento" maxWidth="max-w-2xl">
       <p className="mb-3 text-sm text-slate-400">
-        O painel vai disparar <strong className="text-slate-200">{itens.length}</strong> mensagem(ns) no SendFlow
-        (uma chamada por linha), buscando os accountIds na hora.
+        O painel vai criar <strong className="text-slate-200">{itens.length}</strong> agendamento(s) no SendFlow
+        (uma ação por campanha, com todos os chips juntos), buscando os chips na hora do envio.
       </p>
 
       {avisos.length > 0 && (

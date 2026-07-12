@@ -66,6 +66,7 @@ export default function RotinaDia() {
       (r.feedbacks || []).map((g) => ({
         categoria: g.categoria,
         titulo: g.titulo,
+        campanhas: ['ATIVOS 1', 'ATIVOS 2'],
         slots: g.slots.map((s) => ({
           ordem: s.ordem, nome: s.nome, horario: s.horario, tipo: s.tipo,
           legenda: fbModelos.find((m) => m.id === s.legendaId)?.texto || '',
@@ -93,6 +94,13 @@ export default function RotinaDia() {
 
   // feedbacks (grupos com espaços)
   const delGrupo = (i) => setFeedbacks((f) => f.filter((_, idx) => idx !== i));
+  const toggleCampFeedback = (i, nome) =>
+    setFeedbacks((f) => f.map((g, idx) => {
+      if (idx !== i) return g;
+      const camps = g.campanhas || ['ATIVOS 1', 'ATIVOS 2'];
+      const has = camps.includes(nome);
+      return { ...g, campanhas: has ? camps.filter((c) => c !== nome) : [...camps, nome] };
+    }));
 
   const specs = useMemo(() => {
     const out = [];
@@ -137,11 +145,12 @@ export default function RotinaDia() {
     }
     for (const g of feedbacks) {
       if (!feedbackResp || !g.slots?.length) continue;
+      const camps = g.campanhas?.length ? g.campanhas : ['ATIVOS 1', 'ATIVOS 2'];
       out.push({
         titulo: g.titulo, categoria: g.categoria, dataAlvo,
         horarios: g.slots.map((s) => s.horario),
         slots: g.slots.map((s) => ({ ordem: s.ordem, nome: s.nome, horario: s.horario, legenda: s.legenda || '', tipo: s.tipo })),
-        campanhasDestino: ['ATIVOS 1', 'ATIVOS 2'], releaseIds: releasesDe(['ATIVOS 1', 'ATIVOS 2']),
+        campanhasDestino: camps, releaseIds: releasesDe(camps),
         atribuidoA: feedbackResp, velocidade: 'slow',
       });
     }
@@ -401,14 +410,27 @@ export default function RotinaDia() {
                   const midia = g.slots.filter((s) => s.tipo === 'midia').length;
                   const texto = g.slots.length - midia;
                   return (
-                    <div key={i} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-100">{g.titulo}</p>
-                        <p className="text-[11px] text-slate-500">
-                          {g.slots.length} espaço(s){midia ? ` · ${midia} mídia` : ''}{texto ? ` · ${texto} texto` : ''} · {g.slots.map((s) => s.horario).join(', ')}
-                        </p>
+                    <div key={i} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-slate-100">{g.titulo}</p>
+                          <p className="text-[11px] text-slate-500">
+                            {g.slots.length} espaço(s){midia ? ` · ${midia} mídia` : ''}{texto ? ` · ${texto} texto` : ''} · {g.slots.map((s) => s.horario).join(', ')}
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => delGrupo(i)} className="link-quiet flex-none p-1"><Icon name="trash" className="h-4 w-4" /></button>
                       </div>
-                      <button type="button" onClick={() => delGrupo(i)} className="link-quiet flex-none p-1"><Icon name="trash" className="h-4 w-4" /></button>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {['ATIVOS 1', 'ATIVOS 2'].map((nome) => {
+                          const on = (g.campanhas || []).includes(nome);
+                          return (
+                            <button key={nome} type="button" onClick={() => toggleCampFeedback(i, nome)}
+                              className={`rounded-lg border px-2.5 py-1 text-xs transition ${on ? 'border-brand-400/50 bg-brand-500/15 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'}`}>
+                              {nome}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}

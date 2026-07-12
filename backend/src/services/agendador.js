@@ -48,12 +48,12 @@ function montarPlanoSlots(demanda, arquivos) {
   }));
   const shippingSpeed = demanda.velocidade || 'slow';
   const mentionAll = Boolean(demanda.mencionar);
-  const autoGerida = ehAutoGerida(demanda);
 
+  // Feedbacks são agendados pelo admin assim que a Giselle sobe a mídia — a
+  // mídia presente (não rejeitada) já conta como pronta, sem etapa de aprovação.
   const porOrdem = new Map();
   for (const a of arquivos) {
-    const ok = autoGerida ? a.status !== 'rejeitado' : a.status === 'aprovado';
-    if (ok) porOrdem.set(a.ordem, a);
+    if (a.status !== 'rejeitado') porOrdem.set(a.ordem, a);
   }
 
   const slots = [...(demanda.slots || [])].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));

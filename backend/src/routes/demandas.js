@@ -425,7 +425,8 @@ router.get('/:id/agendar/preview', requireAuth, requireAdmin, async (req, res) =
     if (erro) return res.status(erro).json({ error: msg });
     const plano = agendador.montarPlano(demanda, files);
     const autoGerida = agendador.ehAutoGerida(demanda);
-    const statusOk = demanda.status === 'aprovado' || (autoGerida && demanda.status === 'em_andamento');
+    const temSlots = Array.isArray(demanda.slots) && demanda.slots.length > 0;
+    const statusOk = demanda.status === 'aprovado' || ((autoGerida || temSlots) && demanda.status === 'em_andamento');
     return res.json({
       status: demanda.status,
       podeAgendar: statusOk && plano.itens.length > 0,
@@ -444,8 +445,9 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
     if (erro) return res.status(erro).json({ error: msg });
 
     const autoGerida = agendador.ehAutoGerida(demanda);
+    const temSlots = Array.isArray(demanda.slots) && demanda.slots.length > 0;
     const statusOk = ['aprovado', 'agendamento_pendente', 'erro_agendamento', 'texto_agendado'].includes(demanda.status)
-      || (autoGerida && demanda.status === 'em_andamento');
+      || ((autoGerida || temSlots) && demanda.status === 'em_andamento');
     if (!statusOk) {
       return res.status(400).json({ error: 'Demanda precisa estar aprovada para agendar' });
     }
