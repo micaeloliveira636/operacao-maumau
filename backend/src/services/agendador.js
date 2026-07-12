@@ -417,7 +417,10 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
       releaseId: item.releaseId,
       accountIds,
       tipoEnvio: item.tipo,
-      mensagemOuUrl: item.url,
+      // coluna NOT NULL: em texto não há url -> guarda a mensagem (legenda).
+      // Sem isso, o insert do provisório de texto estourava e a ação ficava
+      // órfã no SendFlow (o apagarProvisorios não achava registro pra remover).
+      mensagemOuUrl: item.url || item.legenda || '',
       legenda: item.legenda,
       variante: item.variante,
       mencionar: item.mentionAll,
