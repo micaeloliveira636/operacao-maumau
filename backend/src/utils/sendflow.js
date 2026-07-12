@@ -1,19 +1,20 @@
 /**
- * Cliente do SendFlow (contrato real).
+ * Cliente do SendFlow (contrato real, verificado ponta-a-ponta).
  *
  *  Auth: header  Authorization: Bearer <token>
- *  Base: https://sendflow.pro
- *  (verificado contra a API real: cf1.sendflow.pro e x-api-key retornam 404/401)
+ *  Base: https://sendapi.sendflow.pro   (accountId vai NO CORPO, nunca na URL)
  *
- *  GET  /sendapi/releases/{releaseId}                      -> { accountIds: [...] }
- *  POST /sendapi/actions/send-text-message/{accountId}     -> { releaseId, messageText, scheduledTo, options }
- *  POST /sendapi/actions/send-image-message/{accountId}    -> { releaseId, url, caption, scheduledTo, options }
- *  POST /sendapi/actions/send-video-message/{accountId}    -> idem imagem
- *  POST /sendapi/actions/delete                            -> { actions: [actionId, ...] }
+ *  GET  /releases/{releaseId}          -> { accountIds: [...] }  (chips da campanha)
+ *  POST /actions/send-{text|image|video}-message
+ *         body { releaseId, accountIds:[...], messageText | url+caption, scheduledTo, options } -> { id }
+ *  POST /actions/send-messages         (batch; usado só p/ MENÇÃO — mídia separada do texto)
+ *  POST /actions/delete                -> { actions: [actionId, ...] }
  *
- *  options = { shippingSpeed: slow|normal|fast|none, mentionAll: boolean }
+ *  options = { shippingSpeed: slow|normal|fast|none }
  *
- * O ENVIO é POR CONTA: uma chamada para cada accountId do release.
+ * UMA AÇÃO POR CAMPANHA: uma única chamada com TODOS os accountIds no array
+ * (o SendFlow distribui o envio entre os chips). NÃO enviar um chip por chamada
+ * — isso cria N ações e o grupo recebe a mensagem N vezes.
  * Toda config (URL, token, paths) vem da tabela `configuracoes` (Ajustes),
  * com fallback para variáveis de ambiente.
  */
@@ -79,12 +80,15 @@ async function buscarAccountIds(releaseId) {
 }
 
 /**
- * Agenda UMA ação para UMA conta (o SendFlow envia por accountId).
+ * Agenda UMA ação para a campanha, usando TODOS os chips de uma vez
+ * (accountIds no corpo — o SendFlow distribui o envio entre as contas).
+ * IMPORTANTE: é UMA ação por campanha, não uma por chip; passar um chip por
+ * chamada faz o grupo receber a mensagem N vezes (uma por chip).
  * @returns {Promise<{ok, actionId?, error?, raw?}>}
  */
 async function agendarAcao({
   tipo, // 'text' | 'image' | 'video'
-  accountId,
+  accountIds, // array de chips da campanha
   releaseId,
   url, // mídia (image/video)
   mensagem, // texto (text) ou legenda/caption (mídia)
@@ -97,8 +101,9 @@ async function agendarAcao({
   // Envio de CAMPANHA: /actions/send-{tipo}-message  (accountIds no corpo).
   const endpoint = `${b}${acoes}/send-${tipo}-message`;
 
+  const ids = (Array.isArray(accountIds) ? accountIds : [accountIds]).filter(Boolean).map(String);
   const options = { shippingSpeed: shippingSpeed || 'slow' };
-  const comum = { releaseId, accountIds: [String(accountId)], scheduledTo, options };
+  const comum = { releaseId, accountIds: ids, scheduledTo, options };
   const body =
     tipo === 'text'
       ? { ...comum, messageText: mensagem || '' }
@@ -136,12 +141,12 @@ async function agendarAcao({
  * Agenda um envio COM MENÇÃO A TODOS (marca todo o grupo).
  * A menção só existe no endpoint batch /actions/send-messages e exige a mídia
  * SEPARADA do texto: manda a mídia (sem legenda) e depois o texto marcando todos.
- * Uma chamada por conta (accountId), igual ao `agendarAcao`.
+ * Uma ação por campanha, com todos os chips no array (igual ao `agendarAcao`).
  * @returns {Promise<{ok, actionId?, error?, raw?}>}
  */
 async function agendarComMencao({
   tipo, // 'text' | 'image' | 'video'
-  accountId,
+  accountIds, // array de chips da campanha
   releaseId,
   url, // mídia (image/video); ignorado se tipo 'text'
   mensagem, // o texto que marca todos
@@ -151,6 +156,7 @@ async function agendarComMencao({
   const b = await base();
   const acoes = (await cfg.get('sendflow_send_path')) || '/actions';
   const endpoint = `${b}${acoes}/send-messages`;
+  const ids = (Array.isArray(accountIds) ? accountIds : [accountIds]).filter(Boolean).map(String);
 
   const messages = [];
   // mídia primeiro, sem legenda (o texto vai separado pra poder mencionar)
@@ -168,7 +174,7 @@ async function agendarComMencao({
   const body = {
     releaseId,
     accountsFrom: 'accounts',
-    accounts: [String(accountId)],
+    accounts: ids,
     to: { type: 'release', ids: [releaseId] },
     data: { messages },
     scheduledTo,

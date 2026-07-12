@@ -1,4 +1,4 @@
-const { and, eq, gte, lte } = require('drizzle-orm');
+const { and, eq, gte, lte, isNull } = require('drizzle-orm');
 const { db } = require('../db');
 const { sendflowSchedules, automationJobs } = require('../db/schema');
 const sendflow = require('../utils/sendflow');
@@ -309,15 +309,21 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
   const resultados = { agendadas: 0, puladas: 0, erros: [] };
 
   for (const item of itens) {
-    // idempotência por mensagem (texto provisório não checa — pode recriar)
+    // idempotência por mensagem (texto provisório não checa — pode recriar).
+    // arquivoId pode ser null (texto/slot de texto) — usar isNull nesse caso,
+    // senão `col = NULL` nunca casa e duplicaria em retentativas.
     if (item.variante !== 'texto') {
+      const arqCond =
+        item.arquivoId == null
+          ? isNull(sendflowSchedules.arquivoId)
+          : eq(sendflowSchedules.arquivoId, item.arquivoId);
       const jaExiste = await db
         .select({ id: sendflowSchedules.id })
         .from(sendflowSchedules)
         .where(
           and(
             eq(sendflowSchedules.demandaId, demanda.id),
-            eq(sendflowSchedules.arquivoId, item.arquivoId),
+            arqCond,
             eq(sendflowSchedules.releaseId, item.releaseId),
             eq(sendflowSchedules.variante, item.variante)
           )
@@ -329,65 +335,59 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
       }
     }
 
-    // accountIds frescos (cacheados por release dentro desta execução)
-    let accountIds = accountCache.get(item.releaseId);
-    if (!accountIds) {
+    // accountIds frescos (cacheados por release nesta execução).
+    let accountIds;
+    if (accountCache.has(item.releaseId)) {
+      accountIds = accountCache.get(item.releaseId);
+    } else {
       try {
         accountIds = await sendflow.buscarAccountIds(item.releaseId);
         accountCache.set(item.releaseId, accountIds);
       } catch (err) {
-        resultados.erros.push(`Release ${item.campanha}: ${err.message}`);
+        // Campanha sem chips agora (ex.: AQUECIMENTO de manhã) é AVISO, não
+        // erro fatal — não pode travar (400) o agendamento das outras campanhas.
+        const semChips = /sem chips/i.test(err.message);
+        (semChips ? avisos : resultados.erros).push(`${item.campanha}: ${err.message}`);
+        accountCache.set(item.releaseId, null);
         continue;
       }
     }
+    if (!accountIds || accountIds.length === 0) continue;
 
-    // O SendFlow envia POR CONTA: uma chamada para cada accountId do release.
-    const actionIds = [];
-    const falhasConta = [];
-    for (const accountId of accountIds) {
-      // Com menção -> endpoint batch (mídia separada do texto que marca todos).
-      // Sem menção (padrão) -> envio simples com legenda junto.
-      const envio = item.mentionAll
-        ? await sendflow.agendarComMencao({
-            tipo: item.tipo,
-            accountId,
-            releaseId: item.releaseId,
-            url: item.url,
-            mensagem: item.legenda,
-            scheduledTo: item.scheduledTo,
-            shippingSpeed: item.shippingSpeed,
-          })
-        : await sendflow.agendarAcao({
-            tipo: item.tipo,
-            accountId,
-            releaseId: item.releaseId,
-            url: item.url,
-            mensagem: item.legenda,
-            scheduledTo: item.scheduledTo,
-            shippingSpeed: item.shippingSpeed,
-            mentionAll: item.mentionAll,
-          });
-      if (envio.ok) actionIds.push(envio.actionId || null);
-      else falhasConta.push(`${accountId}: ${envio.error}`);
-    }
+    // UMA ação por campanha, com TODOS os chips (o SendFlow distribui).
+    // Com menção -> batch (mídia separada do texto que marca todos).
+    const envio = item.mentionAll
+      ? await sendflow.agendarComMencao({
+          tipo: item.tipo,
+          accountIds,
+          releaseId: item.releaseId,
+          url: item.url,
+          mensagem: item.legenda,
+          scheduledTo: item.scheduledTo,
+          shippingSpeed: item.shippingSpeed,
+        })
+      : await sendflow.agendarAcao({
+          tipo: item.tipo,
+          accountIds,
+          releaseId: item.releaseId,
+          url: item.url,
+          mensagem: item.legenda,
+          scheduledTo: item.scheduledTo,
+          shippingSpeed: item.shippingSpeed,
+          mentionAll: item.mentionAll,
+        });
 
-    if (actionIds.length === 0) {
-      resultados.erros.push(
-        `${item.campanha} ${item.horario} (${item.variante}): ${falhasConta[0] || 'falha em todas as contas'}`
-      );
+    if (!envio.ok) {
+      resultados.erros.push(`${item.campanha} ${item.horario} (${item.variante}): ${envio.error}`);
       continue;
     }
-    if (falhasConta.length) {
-      resultados.erros.push(
-        `${item.campanha} ${item.horario}: ${falhasConta.length}/${accountIds.length} conta(s) falharam`
-      );
-    }
 
+    const actionIds = [envio.actionId].filter(Boolean);
     await db.insert(sendflowSchedules).values({
       demandaId: demanda.id,
       automationJobId: job?.id || null,
       arquivoId: item.arquivoId,
-      sendflowActionId: actionIds[0] || null,
+      sendflowActionId: envio.actionId || null,
       releaseId: item.releaseId,
       accountIds,
       tipoEnvio: item.tipo,
@@ -398,12 +398,14 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
       velocidade: item.shippingSpeed,
       scheduledTo: new Date(item.scheduledTo),
       status: 'agendado',
-      resultJson: { actionIds, falhasConta },
+      resultJson: { actionIds },
     });
     resultados.agendadas += 1;
   }
 
-  const sucesso = resultados.erros.length === 0;
+  // Sucesso = sem erros reais E algo aconteceu (agendou ou já estava agendado).
+  const nadaFeito = resultados.agendadas === 0 && resultados.puladas === 0;
+  const sucesso = resultados.erros.length === 0 && !nadaFeito;
   if (job) {
     await db
       .update(automationJobs)
@@ -468,36 +470,31 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
     if (antigos.length) await sendflow.deletarAcoes(antigos).catch(() => {});
 
     const scheduledTo = new Date(s.scheduledTo).toISOString();
-    const novos = [];
-    const falhas = [];
-    for (const accountId of atuais) {
-      const comum = {
-        tipo: s.tipoEnvio,
-        accountId,
-        releaseId: s.releaseId,
-        url: s.tipoEnvio === 'text' ? null : s.mensagemOuUrl,
-        mensagem: s.legenda || '',
-        scheduledTo,
-        shippingSpeed: s.velocidade || 'slow',
-      };
-      const envio = s.mencionar
-        ? await sendflow.agendarComMencao(comum)
-        : await sendflow.agendarAcao({ ...comum, mentionAll: Boolean(s.mencionar) });
-      if (envio.ok) novos.push(envio.actionId || null);
-      else falhas.push(`${accountId}: ${envio.error}`);
-    }
+    const comum = {
+      tipo: s.tipoEnvio,
+      accountIds: atuais,
+      releaseId: s.releaseId,
+      url: s.tipoEnvio === 'text' ? null : s.mensagemOuUrl,
+      mensagem: s.legenda || '',
+      scheduledTo,
+      shippingSpeed: s.velocidade || 'slow',
+    };
+    const envio = s.mencionar
+      ? await sendflow.agendarComMencao(comum)
+      : await sendflow.agendarAcao({ ...comum, mentionAll: Boolean(s.mencionar) });
 
-    if (novos.length === 0) {
-      res.erros.push(`${s.releaseId} ${scheduledTo}: falha ao recriar`);
+    if (!envio.ok) {
+      res.erros.push(`${s.releaseId} ${scheduledTo}: falha ao recriar — ${envio.error}`);
       continue;
     }
 
+    const novos = [envio.actionId].filter(Boolean);
     await db
       .update(sendflowSchedules)
       .set({
         accountIds: atuais,
-        sendflowActionId: novos[0] || null,
-        resultJson: { actionIds: novos, falhasConta: falhas, reagendado: true, em: agora.toISOString() },
+        sendflowActionId: envio.actionId || null,
+        resultJson: { actionIds: novos, reagendado: true, em: agora.toISOString() },
       })
       .where(eq(sendflowSchedules.id, s.id));
     res.reagendados += 1;

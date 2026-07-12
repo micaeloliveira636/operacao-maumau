@@ -161,6 +161,7 @@ export default function DemandaDetalhe() {
       setPlano(null);
       if (resultado?.ok) {
         setOverlay(`${resultado.agendadas} mensagem(ns) agendada(s)`);
+        if (resultado.avisos?.length) toast.info(resultado.avisos.slice(0, 2).join(' · '));
       } else {
         toast.erro(`Falhou: ${(resultado?.erros || ['erro']).slice(0, 2).join(' | ')}`);
       }
