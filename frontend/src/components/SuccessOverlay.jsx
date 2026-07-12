@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 // Check SVG desenhado progressivamente via stroke-dashoffset (checkDraw).
 export function SuccessCheck({ size = 40 }) {
@@ -27,7 +28,9 @@ export function SuccessOverlay({ message, onDone, duracao = 1600 }) {
     return () => clearTimeout(t);
   }, [onDone, duracao]);
 
-  return (
+  // Portal para o body: escapa de ancestrais com transform (animate-fade-up),
+  // que ancoravam o position:fixed e jogavam o overlay pro topo da página.
+  return createPortal(
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-ink-950/85 backdrop-blur-sm"
       style={{ animation: 'slideOverlay 0.3s ease' }}
@@ -42,6 +45,7 @@ export function SuccessOverlay({ message, onDone, duracao = 1600 }) {
         </div>
         <p className="text-base font-semibold text-slate-100">{message}</p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
