@@ -238,8 +238,8 @@ router.post('/reconferir-chips', requireAuth, requireAdmin, async (req, res) => 
   }
 });
 
-// PATCH /demandas/:id — editar (admin only)
-router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
+// PATCH /demandas/:id — editar (admin: tudo; operador dono: só os slots/legendas)
+router.patch('/:id', requireAuth, async (req, res) => {
   try {
     const [demanda] = await db
       .select()
@@ -251,17 +251,26 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Demanda não encontrada' });
     }
 
+    // Admin edita tudo; operador só a demanda dele (feedbacks) e só os slots.
+    const ehAdmin = req.user.role === 'admin';
+    const ehDono = demanda.atribuidoA === req.user.id;
+    if (!ehAdmin && !ehDono) {
+      return res.status(403).json({ error: 'Sem permissão' });
+    }
+
     // Não permite editar se já agendada ou concluída
     if (['agendado', 'concluido'].includes(demanda.status)) {
       return res.status(400).json({ error: 'Não é possível editar demanda neste status' });
     }
 
-    const allowedFields = [
-      'titulo', 'categoria', 'descricao', 'dataAlvo', 'horarios',
-      'campanhasDestino', 'releaseIds', 'atribuidoA',
-      'legenda', 'mencionar', 'velocidade', 'prioridade',
-      'linkPrincipal', 'linkDois', 'slots',
-    ];
+    const allowedFields = ehAdmin
+      ? [
+          'titulo', 'categoria', 'descricao', 'dataAlvo', 'horarios',
+          'campanhasDestino', 'releaseIds', 'atribuidoA',
+          'legenda', 'mencionar', 'velocidade', 'prioridade',
+          'linkPrincipal', 'linkDois', 'slots',
+        ]
+      : ['slots']; // operador só mexe nas legendas dos espaços de feedback
 
     const updates = {};
     for (const field of allowedFields) {

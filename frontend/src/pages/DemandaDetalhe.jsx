@@ -376,7 +376,7 @@ export default function DemandaDetalhe() {
           demanda={demanda}
           arquivos={arquivos}
           podeSubir={podeEditar}
-          podeEditar={isAdmin && !['agendado', 'concluido'].includes(demanda.status)}
+          podeEditar={podeEditar}
           onEnviado={(arq) => setArquivos((a) => [...a.filter((x) => x.ordem !== arq.ordem), arq])}
           onDeletar={deletarArquivo}
           onSalvarSlots={salvarSlots}

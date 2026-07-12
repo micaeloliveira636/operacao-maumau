@@ -30,7 +30,8 @@ export default function RotinaDia() {
   const { user } = useAuth();
   const toast = useToast();
   const { data: usuariosData } = useFetch('/usuarios', []);
-  const operadores = (usuariosData?.usuarios || []).filter((u) => u.ativo);
+  // Só operadores (ex.: Giselle) — feedbacks são atribuídos a eles, não ao admin.
+  const operadores = (usuariosData?.usuarios || []).filter((u) => u.ativo && u.role === 'operador');
 
   const [dataAlvo, setDataAlvo] = useState(new Date().toISOString().slice(0, 10));
   const [sabadoModo, setSabadoModo] = useState(2);
