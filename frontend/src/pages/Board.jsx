@@ -1,14 +1,34 @@
 import { useMemo, useState } from 'react';
 import { useFetch } from '../lib/useFetch';
+import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { BOARD_COLUNAS, CATEGORIAS } from '../lib/constants';
 import { LoadingScreen, EmptyState, Select } from '../components/ui';
 import { DemandaCard } from '../components/DemandaCard';
 import { Icon } from '../components/Icon';
 
 export default function Board() {
-  const { data, carregando } = useFetch('/demandas', []);
+  const { data, carregando, setData } = useFetch('/demandas', []);
+  const { isAdmin } = useAuth();
+  const toast = useToast();
+  const [excluindo, setExcluindo] = useState(null);
   const [busca, setBusca] = useState('');
   const [categoria, setCategoria] = useState('');
+
+  async function excluir(demanda) {
+    if (!window.confirm(`Excluir "${demanda.titulo}"?\nIsso também remove os agendamentos dela no SendFlow.`)) return;
+    setExcluindo(demanda.id);
+    try {
+      const r = await api.del(`/demandas/${demanda.id}`);
+      setData((d) => ({ ...d, demandas: (d?.demandas || []).filter((x) => x.id !== demanda.id) }));
+      toast.sucesso(r?.acoesRemovidas ? `Excluída · ${r.acoesRemovidas} envio(s) removido(s) do SendFlow` : 'Demanda excluída');
+    } catch (err) {
+      toast.erro(err.message || 'Falha ao excluir');
+    } finally {
+      setExcluindo(null);
+    }
+  }
   // no mobile começa em lista (kanban horizontal é ruim de usar no dedo)
   const [modo, setModo] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 768 ? 'lista' : 'board'
@@ -85,7 +105,8 @@ export default function Board() {
                   </div>
                   <div className="space-y-3">
                     {itens.map((d, i) => (
-                      <DemandaCard key={d.id} demanda={d} compact index={i} />
+                      <DemandaCard key={d.id} demanda={d} compact index={i}
+                        podeExcluir={isAdmin} onExcluir={excluir} excluindo={excluindo === d.id} />
                     ))}
                     {itens.length === 0 && (
                       <div className="rounded-xl border border-dashed border-white/[0.06] py-8 text-center text-xs text-slate-600">
@@ -101,7 +122,8 @@ export default function Board() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {demandas.map((d, i) => (
-            <DemandaCard key={d.id} demanda={d} index={i} />
+            <DemandaCard key={d.id} demanda={d} index={i}
+              podeExcluir={isAdmin} onExcluir={excluir} excluindo={excluindo === d.id} />
           ))}
         </div>
       )}

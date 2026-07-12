@@ -682,8 +682,12 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Demanda não encontrada' });
     }
 
-    if (['agendado', 'concluido'].includes(demanda.status)) {
-      return res.status(400).json({ error: 'Não é possível deletar demanda agendada ou concluída' });
+    // Limpa os envios no SendFlow antes de apagar (evita ações órfãs).
+    let acoesRemovidas = 0;
+    try {
+      acoesRemovidas = await agendador.apagarAcoesDaDemanda(demanda.id);
+    } catch (e) {
+      console.error('Falha ao limpar ações da demanda no SendFlow:', e.message);
     }
 
     await db.delete(demandas).where(eq(demandas.id, req.params.id));
@@ -691,11 +695,11 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     await logActivity({
       userId: req.user.id,
       action: 'demanda.deletada',
-      metadata: { titulo: demanda.titulo },
+      metadata: { titulo: demanda.titulo, status: demanda.status, acoesRemovidas },
       ipAddress: req.ip,
     });
 
-    return res.json({ message: 'Demanda deletada' });
+    return res.json({ message: 'Demanda deletada', acoesRemovidas });
   } catch (err) {
     console.error('Erro ao deletar demanda:', err);
     return res.status(500).json({ error: 'Erro interno' });

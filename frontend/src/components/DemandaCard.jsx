@@ -3,13 +3,13 @@ import { StatusBadge, CategoriaTag } from './ui';
 import { Icon } from './Icon';
 import { formatarData } from '../lib/format';
 
-export function DemandaCard({ demanda, compact, index = 0 }) {
+export function DemandaCard({ demanda, compact, index = 0, podeExcluir, onExcluir, excluindo }) {
   const horarios = demanda.horarios || [];
   return (
     <Link
       to={`/demandas/${demanda.id}`}
       style={{ animationDelay: `${Math.min(index, 12) * 0.05}s` }}
-      className="card card-lift animate-card block p-4 hover:border-brand-400/30 hover:shadow-glow"
+      className={`card card-lift animate-card relative block p-4 hover:border-brand-400/30 hover:shadow-glow ${podeExcluir ? 'pb-11' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="line-clamp-2 flex-1 text-sm font-medium text-slate-100">{demanda.titulo}</p>
@@ -39,6 +39,18 @@ export function DemandaCard({ demanda, compact, index = 0 }) {
       )}
 
       {compact && <StatusBadge status={demanda.status} className="mt-3" />}
+
+      {podeExcluir && (
+        <button
+          type="button"
+          disabled={excluindo}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onExcluir?.(demanda); }}
+          title="Excluir demanda"
+          className="absolute bottom-2 right-2 rounded-lg border border-white/10 bg-ink-900/80 p-1.5 text-slate-400 backdrop-blur transition hover:border-rose-500/40 hover:bg-rose-500/15 hover:text-rose-300 disabled:opacity-50"
+        >
+          <Icon name="trash" className="h-4 w-4" />
+        </button>
+      )}
     </Link>
   );
 }

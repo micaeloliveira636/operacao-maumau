@@ -269,6 +269,26 @@ async function apagarProvisorios(demandaId) {
   return actionIds.length;
 }
 
+/**
+ * Apaga no SendFlow TODAS as ações agendadas de uma demanda (qualquer variante).
+ * Usado ao excluir a demanda, pra não deixar envios órfãos no SendFlow.
+ */
+async function apagarAcoesDaDemanda(demandaId) {
+  const rows = await db
+    .select()
+    .from(sendflowSchedules)
+    .where(eq(sendflowSchedules.demandaId, demandaId));
+  const actionIds = [];
+  for (const s of rows) {
+    if (s.status === 'cancelado') continue;
+    const arr = Array.isArray(s.resultJson?.actionIds) ? s.resultJson.actionIds.filter(Boolean) : [];
+    for (const a of arr) actionIds.push(a);
+    if (!arr.length && s.sendflowActionId) actionIds.push(s.sendflowActionId);
+  }
+  if (actionIds.length) await sendflow.deletarAcoes(actionIds).catch(() => {});
+  return actionIds.length;
+}
+
 /** Agenda só o texto (provisório). */
 async function executarAgendamentoTexto(demanda, userId) {
   const { itens, avisos } = montarPlanoTexto(demanda);
@@ -544,5 +564,5 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
 
 module.exports = {
   montarPlano, montarPlanoTexto, executarAgendamento, executarAgendamentoTexto,
-  apagarProvisorios, reconferirChips, montarLegenda, montarScheduledTo, ehAutoGerida,
+  apagarProvisorios, apagarAcoesDaDemanda, reconferirChips, montarLegenda, montarScheduledTo, ehAutoGerida,
 };

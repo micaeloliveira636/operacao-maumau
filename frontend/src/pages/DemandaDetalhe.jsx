@@ -258,8 +258,8 @@ export default function DemandaDetalhe() {
             <h1 className="mt-3 page-title">{demanda.titulo}</h1>
             {demanda.descricao && <p className="mt-2 text-sm text-slate-400">{demanda.descricao}</p>}
           </div>
-          {isAdmin && EDITAVEL.includes(demanda.status) && (
-            <button onClick={deletarDemanda} className="btn-danger px-3">
+          {isAdmin && (
+            <button onClick={deletarDemanda} className="btn-danger px-3" title="Excluir demanda">
               <Icon name="trash" className="h-4 w-4" />
             </button>
           )}
