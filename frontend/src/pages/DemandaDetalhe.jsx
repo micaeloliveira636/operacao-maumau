@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { STATUS, CAMPANHAS } from '../lib/constants';
 import { formatarData } from '../lib/format';
-import { StatusBadge, CategoriaTag, LoadingScreen, EmptyState, Modal, Spinner, Select } from '../components/ui';
+import { StatusBadge, CategoriaTag, LoadingScreen, EmptyState, Modal, Spinner, Select, ConfirmDialog } from '../components/ui';
 import { WhatsappPreview } from '../components/WhatsappPreview';
 import { ArquivoUploader } from '../components/ArquivoUploader';
 import { uploadArquivo } from '../lib/upload';
@@ -189,8 +189,18 @@ export default function DemandaDetalhe() {
     }
   }
 
-  async function agendarTexto() {
-    if (!confirm('Agendar só o texto agora? Quando a mídia for adicionada, o agendamento completo substitui automaticamente.')) return;
+  // Confirmação dentro do app: { titulo, mensagem, confirmLabel, perigo, acao }
+  const [confirmacao, setConfirmacao] = useState(null);
+
+  function agendarTexto() {
+    setConfirmacao({
+      titulo: 'Agendar só o texto',
+      mensagem: 'Agendar só o texto agora? Quando a mídia for adicionada, o agendamento completo substitui automaticamente.',
+      confirmLabel: 'Agendar texto',
+      acao: doAgendarTexto,
+    });
+  }
+  async function doAgendarTexto() {
     setAgendando(true);
     try {
       const { demanda: upd, resultado } = await api.post(`/demandas/${id}/agendar-texto`);
@@ -204,8 +214,16 @@ export default function DemandaDetalhe() {
     }
   }
 
-  async function cancelarAgendamento() {
-    if (!confirm('Cancelar o agendamento? As ações serão apagadas no SendFlow.')) return;
+  function cancelarAgendamento() {
+    setConfirmacao({
+      titulo: 'Cancelar agendamento',
+      mensagem: 'Cancelar o agendamento? As ações serão apagadas no SendFlow.',
+      confirmLabel: 'Cancelar agendamento',
+      perigo: true,
+      acao: doCancelarAgendamento,
+    });
+  }
+  async function doCancelarAgendamento() {
     setAgendando(true);
     try {
       const { demanda: upd, deletadas } = await api.post(`/demandas/${id}/cancelar-agendamento`);
@@ -218,11 +236,19 @@ export default function DemandaDetalhe() {
     }
   }
 
-  async function deletarDemanda() {
-    if (!confirm('Deletar esta demanda e seus arquivos?')) return;
+  function deletarDemanda() {
+    setConfirmacao({
+      titulo: 'Excluir demanda',
+      mensagem: 'Excluir esta demanda e seus arquivos? Os agendamentos dela no SendFlow também serão removidos.',
+      confirmLabel: 'Excluir',
+      perigo: true,
+      acao: doDeletarDemanda,
+    });
+  }
+  async function doDeletarDemanda() {
     try {
       await api.del(`/demandas/${id}`);
-      toast.sucesso('Demanda deletada');
+      toast.sucesso('Demanda excluída');
       navigate('/board');
     } catch (err) {
       toast.erro(err.message);
@@ -243,6 +269,15 @@ export default function DemandaDetalhe() {
   return (
     <div className="page max-w-4xl animate-fade-up">
       {overlay && <SuccessOverlay message={overlay} onDone={() => setOverlay(null)} />}
+      <ConfirmDialog
+        open={!!confirmacao}
+        titulo={confirmacao?.titulo}
+        mensagem={confirmacao?.mensagem}
+        confirmLabel={confirmacao?.confirmLabel || 'Confirmar'}
+        perigo={confirmacao?.perigo}
+        onConfirmar={() => { const a = confirmacao?.acao; setConfirmacao(null); a?.(); }}
+        onCancelar={() => setConfirmacao(null)}
+      />
       <button onClick={() => navigate(-1)} className="link-quiet inline-flex items-center gap-1.5 text-sm">
         <Icon name="arrowLeft" className="h-4 w-4" /> Voltar
       </button>

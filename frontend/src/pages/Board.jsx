@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { BOARD_COLUNAS, CATEGORIAS } from '../lib/constants';
-import { LoadingScreen, EmptyState, Select } from '../components/ui';
+import { LoadingScreen, EmptyState, Select, ConfirmDialog } from '../components/ui';
 import { DemandaCard } from '../components/DemandaCard';
 import { Icon } from '../components/Icon';
 
@@ -13,16 +13,17 @@ export default function Board() {
   const { isAdmin } = useAuth();
   const toast = useToast();
   const [excluindo, setExcluindo] = useState(null);
+  const [confirmar, setConfirmar] = useState(null); // demanda aguardando confirmação
   const [busca, setBusca] = useState('');
   const [categoria, setCategoria] = useState('');
 
   async function excluir(demanda) {
-    if (!window.confirm(`Excluir "${demanda.titulo}"?\nIsso também remove os agendamentos dela no SendFlow.`)) return;
     setExcluindo(demanda.id);
     try {
       const r = await api.del(`/demandas/${demanda.id}`);
       setData((d) => ({ ...d, demandas: (d?.demandas || []).filter((x) => x.id !== demanda.id) }));
       toast.sucesso(r?.acoesRemovidas ? `Excluída · ${r.acoesRemovidas} envio(s) removido(s) do SendFlow` : 'Demanda excluída');
+      setConfirmar(null);
     } catch (err) {
       toast.erro(err.message || 'Falha ao excluir');
     } finally {
@@ -106,7 +107,7 @@ export default function Board() {
                   <div className="space-y-3">
                     {itens.map((d, i) => (
                       <DemandaCard key={d.id} demanda={d} compact index={i}
-                        podeExcluir={isAdmin} onExcluir={excluir} excluindo={excluindo === d.id} />
+                        podeExcluir={isAdmin} onExcluir={setConfirmar} excluindo={excluindo === d.id} />
                     ))}
                     {itens.length === 0 && (
                       <div className="rounded-xl border border-dashed border-white/[0.06] py-8 text-center text-xs text-slate-600">
@@ -123,10 +124,21 @@ export default function Board() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {demandas.map((d, i) => (
             <DemandaCard key={d.id} demanda={d} index={i}
-              podeExcluir={isAdmin} onExcluir={excluir} excluindo={excluindo === d.id} />
+              podeExcluir={isAdmin} onExcluir={setConfirmar} excluindo={excluindo === d.id} />
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmar}
+        titulo="Excluir demanda"
+        mensagem={confirmar ? `Excluir "${confirmar.titulo}"?\nIsso também remove os agendamentos dela no SendFlow.` : ''}
+        confirmLabel="Excluir"
+        perigo
+        ocupado={!!excluindo}
+        onConfirmar={() => confirmar && excluir(confirmar)}
+        onCancelar={() => setConfirmar(null)}
+      />
     </div>
   );
 }

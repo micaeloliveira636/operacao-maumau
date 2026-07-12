@@ -298,3 +298,29 @@ export function Modal({ open, onClose, titulo, children, maxWidth = 'max-w-lg' }
     document.body
   );
 }
+
+// Confirmação dentro do app (substitui o window.confirm do navegador).
+export function ConfirmDialog({
+  open,
+  titulo = 'Confirmar',
+  mensagem,
+  confirmLabel = 'Confirmar',
+  cancelLabel = 'Cancelar',
+  perigo = false,
+  ocupado = false,
+  onConfirmar,
+  onCancelar,
+}) {
+  return (
+    <Modal open={open} onClose={ocupado ? undefined : onCancelar} titulo={titulo} maxWidth="max-w-md">
+      {mensagem && <p className="whitespace-pre-line text-sm leading-relaxed text-slate-300">{mensagem}</p>}
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onCancelar} disabled={ocupado} className="btn-ghost">{cancelLabel}</button>
+        <button onClick={onConfirmar} disabled={ocupado} className={perigo ? 'btn-danger' : 'btn-primary'}>
+          {ocupado && <Spinner className="h-4 w-4" />}
+          {confirmLabel}
+        </button>
+      </div>
+    </Modal>
+  );
+}

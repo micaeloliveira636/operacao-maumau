@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { LoadingScreen, EmptyState, Modal, Spinner, Select } from '../components/ui';
+import { LoadingScreen, EmptyState, Modal, Spinner, Select, ConfirmDialog } from '../components/ui';
 import { Icon } from '../components/Icon';
 
 const TIPOS = [
@@ -80,12 +80,13 @@ export default function Copys() {
     }
   }
 
+  const [aExcluir, setAExcluir] = useState(null);
   async function deletar(copy) {
-    if (!confirm(`Deletar "${copy.nome}"?`)) return;
     try {
       await api.del(`/copys/${copy.id}`);
       setCopys((c) => c.filter((x) => x.id !== copy.id));
       toast.sucesso('Copy deletada');
+      setAExcluir(null);
     } catch (err) {
       toast.erro(err.message);
     }
@@ -142,7 +143,7 @@ export default function Copys() {
                       <button onClick={() => setEditando(copy)} className="rounded-md p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-100" title="Editar">
                         <Icon name="edit" className="h-4 w-4" />
                       </button>
-                      <button onClick={() => deletar(copy)} className="rounded-md p-1.5 text-slate-400 hover:bg-white/5 hover:text-rose-300" title="Deletar">
+                      <button onClick={() => setAExcluir(copy)} className="rounded-md p-1.5 text-slate-400 hover:bg-white/5 hover:text-rose-300" title="Deletar">
                         <Icon name="trash" className="h-4 w-4" />
                       </button>
                     </>
@@ -196,6 +197,16 @@ export default function Copys() {
           </form>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={!!aExcluir}
+        titulo="Excluir copy"
+        mensagem={aExcluir ? `Excluir "${aExcluir.nome}"?` : ''}
+        confirmLabel="Excluir"
+        perigo
+        onConfirmar={() => aExcluir && deletar(aExcluir)}
+        onCancelar={() => setAExcluir(null)}
+      />
     </div>
   );
 }
