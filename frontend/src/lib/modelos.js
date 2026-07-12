@@ -124,7 +124,31 @@ EX:29,37,51,63,89,111,249,311,479,617 etc
 
 Sistema novo: {link}`,
   },
+  {
+    id: 'ent-1830-dom',
+    label: '18h30 — Última falha validada (domingo)',
+    precisaSlot: true,
+    precisaLink: true,
+    texto: `*ULTIMA FALHA VALIDADA ✅*
+
+Família, validamos o ponto mais vulnerável devido as falhas desse sistema família - *Aproveitem🚨*
+
+*SLOT: {slot}*
+
+ESTRATÉGIA: Comece com uma bet baixa e suba após ganhos pequenos para alinhar ao padrão!
+
+DEPOSITE VALORES QUEBRADOS
+EX: 29,41,59,77,91,133,195,281,407 ETC
+
+Link atualizado: {link}`,
+  },
 ];
+
+// Variações de entrada para um horário (12:30 -> ent-1230, ent-1230-sn…).
+export function modelosDaEntrada(hora) {
+  const pref = 'ent-' + String(hora || '').replace(':', '');
+  return ENTRADA.filter((m) => m.id.startsWith(pref));
+}
 
 const PEDIDO = [
   {

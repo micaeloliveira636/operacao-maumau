@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { CAMPANHAS } from '../lib/constants';
 import {
-  PASTAS_AQUECIMENTO, modelosDaPasta, MODELOS, SLOTS, aplicarSlot,
+  PASTAS_AQUECIMENTO, modelosDaPasta, MODELOS, SLOTS, aplicarSlot, modelosDaEntrada,
 } from '../lib/modelos';
 import { montarRotina, nomeDoDia, diaDaSemana } from '../lib/rotina';
 import { Select, ModelPicker, Spinner } from '../components/ui';
@@ -90,7 +90,15 @@ export default function RotinaDia() {
 
   // entradas
   const setEntrada = (i, patch) => setEntradas((e) => e.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
-  const addEntrada = () => setEntradas((e) => [...e, { hora: '', slot: SLOTS[0], modeloId: '' }]);
+  const addEntrada = () => setEntradas((e) => [...e, { hora: '', slot: SLOTS[0], modeloId: '', texto: '' }]);
+  // Texto da entrada a partir da variação escolhida + slot ({slot} aplicado, {link} mantido).
+  const textoEntrada = (hora, modeloId, slot) => {
+    const m = modelosDaEntrada(hora).find((x) => x.id === modeloId);
+    return m ? aplicarSlot(m.texto, slot) : '';
+  };
+  // Ao trocar variação/slot, recria o texto editável (a menos que já editado à mão).
+  const escolherVariacao = (i, e, modeloId) => setEntrada(i, { modeloId, texto: textoEntrada(e.hora, modeloId, e.slot) });
+  const escolherSlot = (i, e, slot) => setEntrada(i, { slot, texto: e.modeloId ? textoEntrada(e.hora, e.modeloId, slot) : e.texto });
   const delEntrada = (i) => setEntradas((e) => e.filter((_, idx) => idx !== i));
 
   // feedbacks (grupos com espaços)
@@ -135,11 +143,12 @@ export default function RotinaDia() {
       });
     }
     for (const e of entradas) {
-      if (!e.hora || !e.modeloId) continue;
-      const m = MODELOS.entrada.find((x) => x.id === e.modeloId);
+      // texto editado tem prioridade; senão usa a variação escolhida
+      const legenda = e.texto?.trim() ? e.texto : textoEntrada(e.hora, e.modeloId, e.slot);
+      if (!e.hora || !legenda.trim()) continue;
       out.push({
         titulo: `Entrada ${e.hora}${e.slot ? ` — ${e.slot}` : ''}`, categoria: 'entrada', dataAlvo, horarios: [e.hora],
-        legenda: m ? aplicarSlot(m.texto, e.slot) : '', campanhasDestino: ['ATIVOS 1', 'ATIVOS 2'],
+        legenda, campanhasDestino: ['ATIVOS 1', 'ATIVOS 2'],
         releaseIds: releasesDe(['ATIVOS 1', 'ATIVOS 2']), atribuidoA: user?.id, velocidade: 'normal',
         linkPrincipal: linkDia.principal || null, linkDois: linkDia.dois || null,
       });
@@ -375,13 +384,25 @@ export default function RotinaDia() {
                     </div>
                     <div>
                       <label className="label">Slot</label>
-                      <Select value={e.slot} onChange={(v) => setEntrada(i, { slot: v })} placeholder="Fortune…" options={SLOTS} />
+                      <Select value={e.slot} onChange={(v) => escolherSlot(i, e, v)} placeholder="Fortune…" options={SLOTS} />
                     </div>
                   </div>
                   <div>
-                    <label className="label">Modelo</label>
-                    <ModelPicker value={e.modeloId} onChange={(v) => setEntrada(i, { modeloId: v })} placeholder="Escolha o texto…"
-                      titulo="Entrada" options={MODELOS.entrada.map((m, idx) => ({ value: m.id, label: `Variação ${idx + 1}`, texto: aplicarSlot(m.texto, e.slot) }))} />
+                    <label className="label">Variação ({String(e.hora || '').replace(':', 'h')})</label>
+                    <ModelPicker value={e.modeloId} onChange={(v) => escolherVariacao(i, e, v)} placeholder="Escolha a variação…"
+                      titulo={`Entrada ${String(e.hora || '').replace(':', 'h')}`}
+                      options={modelosDaEntrada(e.hora).map((m, idx) => ({
+                        value: m.id,
+                        label: `Variação ${idx + 1} — ${String(e.hora || '').replace(':', 'h')}`,
+                        texto: aplicarSlot(m.texto, e.slot),
+                      }))} />
+                  </div>
+                  <div>
+                    <label className="label">Texto (editável)</label>
+                    <textarea className="input min-h-[120px] resize-y font-mono text-[13px] leading-snug"
+                      value={e.texto || ''} onChange={(ev) => setEntrada(i, { texto: ev.target.value })}
+                      placeholder="Escolha uma variação acima ou digite o texto. Use {link} onde o link do dia entra." />
+                    <p className="mt-1 text-[11px] text-slate-500">O <code>{'{link}'}</code> é trocado pelo link do dia no agendamento.</p>
                   </div>
                 </div>
               ))}
