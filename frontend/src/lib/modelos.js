@@ -562,6 +562,77 @@ export const MODELOS = {
   'bom-dia': BOM_DIA,
 };
 
+// Frases prontas de feedback (tiradas dos roteiros diários) — pra escolher em
+// vez de digitar, já que muitas se repetem. Sempre editáveis depois de inserir.
+export const FRASES_FEEDBACK = {
+  // Feedbacks 2/3/4 das entradas (o "recheio" que varia).
+  entrada: [
+    'E esse feedback família🤣',
+    'E esse feedback aqui família?🤣',
+    'E esse ganho monstruoso família',
+    'Será que o sistema novo ta bom família?🤣',
+    'Será que o sistema ta bom família?🤣',
+    'Será que a falha ta boa família?🤣',
+    'Aproveitem essa falha família',
+    'Aproveitem o sistema família',
+    'Aproveitem o sistema novo família',
+    'Aproveitem essa falha no sistema novo família!!',
+    'Aproveitem essa brecha família',
+    'Aproveitem essa vulnerabilidade no sistema família',
+    'Aproveitem essa última falha família',
+    'Segue sempre sem ganância família!!',
+    'Segue sem ganância família, fez o lucro já saca!!',
+    'Mais um que lucrou forte no sistema novo família',
+    'Mais um que saiu lucrando família',
+    'Mais um que saiu lucrando forte',
+    'Mais um que aproveitou bem o sistema família',
+    'Mais um lucro sinistro por aqui família',
+    'Se liga nesse feedback família',
+    'Se liga nesse feedback monstruoso família',
+    'Se liga nesse ganho família',
+    'Se liga nesse ganho monstruoso família',
+    'Se liga nesse lucro no sistema novo família',
+    'Seguiu o método e conseguiu esse resultado aqui família',
+    'Feliz com o resultado de vocês família❤️',
+    'Negócio segue sinistro no sistema novo família',
+    '105 de banca e se liga no resultado família',
+    '79 de banca e se liga no resultado família',
+    'Com 125 de banca pegou esse ganho',
+    'Esse teve a semana garantida em família🤣',
+    'Esse vai sextar bem em família kkkkkkkkkkkk',
+    'Esse segundou bem em família kkkkkkkkkkkk',
+    'Quem não ta aproveitando o sistema ta vacilando🤣',
+  ],
+  // Feedbacks de lara (2 por pedido de 13h/15h/19h).
+  lara: [
+    'Começamos a escala do sistema novo✅',
+    'Começamos a escala dessa falha por aqui família',
+    '+R$2.090 para o lara iniciar bem a semana família✅',
+    '+R$2.900 para o lara família',
+    '+R$2.400 pro lara',
+    '*+R$2.855 pro lara✅*',
+    '+R$1.500 pro lara família✅',
+    'R$3.500 pro lara em plena sexta família',
+    'R$3.200 pro lara em plena quarta família',
+    '+R$3.300,00 pro lara em plena terça família',
+    '*+R$3.440 para o lara família✅*',
+    '+R$3.700 para o lara em pleno domingão',
+    '*Saque de 10k na conta do lara✅*',
+    'Saque de quase 10k na conta do lara✅',
+    'Saque de quase 9k na conta do lara✅',
+    'Saque de quase 14k na conta do lara✅',
+    'Sistema novo segue rendendo forte família',
+    'Sistema segue insano família',
+    '*Mais um lara que vai sair com o bolso forrado família✅*',
+    '*Mais um lara que vai sextar bem🤣*',
+    '*O lara ficou desacreditado do valor🤣*',
+    'Esse garantiu o mês todo só nessa operação🤣',
+    'Só pra não passar o domingo em branco família',
+    'Só pra não passar o sábado em branco família',
+    'Esse vai ter o domingo garantido em família🤣',
+  ],
+};
+
 // Pastas do aquecimento (por horário, como no SendFlow). `hora` é o horário
 // de envio padrão daquele slot. `prefixo` casa com o id dos modelos.
 const ATIVOS = ['ATIVOS 1', 'ATIVOS 2'];

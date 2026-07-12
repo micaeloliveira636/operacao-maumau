@@ -93,12 +93,13 @@ function montarFeedbacks(base, weekday) {
   const grupos = [];
   base.entradas.forEach((e, idx) => {
     const ehUltimaDom = weekday === 0 && idx === base.entradas.length - 1;
+    // TODOS os 5 espaços têm mídia (foto). O 1º e o 5º já vêm com a legenda
+    // fixa preenchida (Giselle só troca se quiser); 2/3/4 vêm sem legenda.
     const slots = [15, 30, 45, 60, 75].map((off, i) => {
       let legendaId = '';
-      let tipo = 'midia';
-      if (i === 0) { legendaId = 'fb-primeiro'; tipo = 'texto'; }
-      else if (i === 4) { legendaId = feedbackFinalId(e.hora, base.sistemaNovo, weekday, ehUltimaDom); tipo = 'texto'; }
-      return { ordem: i, nome: `Feedback ${i + 1}`, horario: addMin(e.hora, off), legendaId, tipo };
+      if (i === 0) legendaId = 'fb-primeiro';
+      else if (i === 4) legendaId = feedbackFinalId(e.hora, base.sistemaNovo, weekday, ehUltimaDom);
+      return { ordem: i, nome: `Feedback ${i + 1}`, horario: addMin(e.hora, off), legendaId, tipo: 'midia' };
     });
     grupos.push({ categoria: 'feedback-entrada', titulo: `Feedbacks entrada ${e.hora}`, slots });
   });

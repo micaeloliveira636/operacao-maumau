@@ -5,10 +5,11 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { STATUS } from '../lib/constants';
 import { formatarData } from '../lib/format';
-import { StatusBadge, CategoriaTag, LoadingScreen, EmptyState, Modal, Spinner } from '../components/ui';
+import { StatusBadge, CategoriaTag, LoadingScreen, EmptyState, Modal, Spinner, Select } from '../components/ui';
 import { WhatsappPreview } from '../components/WhatsappPreview';
 import { ArquivoUploader } from '../components/ArquivoUploader';
 import { uploadArquivo } from '../lib/upload';
+import { FRASES_FEEDBACK } from '../lib/modelos';
 import { SuccessOverlay } from '../components/SuccessOverlay';
 import { Icon } from '../components/Icon';
 
@@ -575,6 +576,15 @@ function SlotsSection({ demanda, arquivos, podeSubir, podeEditar, onEnviado, onD
     onSalvarSlots?.(slots.map((s) => (s.ordem === ordem ? { ...s, legenda: legendas[ordem] } : s)));
   }
 
+  // Frases prontas por tipo de feedback (entrada x lara) — pra escolher rápido.
+  const frases = demanda.categoria === 'feedback-lara' ? FRASES_FEEDBACK.lara : FRASES_FEEDBACK.entrada;
+  const opcoesFrases = frases.map((f) => ({ value: f, label: f }));
+  function inserirFrase(ordem, frase) {
+    if (!frase) return;
+    setLegendas((l) => ({ ...l, [ordem]: frase }));
+    onSalvarSlots?.(slots.map((s) => (s.ordem === ordem ? { ...s, legenda: frase } : s)));
+  }
+
   return (
     <div>
       <h2 className="mb-3 text-sm font-semibold text-slate-200">
@@ -626,6 +636,16 @@ function SlotsSection({ demanda, arquivos, podeSubir, podeEditar, onEnviado, onD
 
               {podeEditar || ehTexto ? (
                 <div>
+                  {podeEditar && opcoesFrases.length > 0 && (
+                    <div className="mb-1.5">
+                      <Select
+                        value=""
+                        onChange={(v) => inserirFrase(slot.ordem, v)}
+                        options={opcoesFrases}
+                        placeholder="Inserir frase pronta…"
+                      />
+                    </div>
+                  )}
                   <textarea
                     className="input min-h-[64px] resize-y"
                     value={legendas[slot.ordem] || ''}
