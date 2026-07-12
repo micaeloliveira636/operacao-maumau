@@ -278,9 +278,11 @@ export function Modal({ open, onClose, titulo, children, maxWidth = 'max-w-lg' }
   // contexto de empilhamento — no mobile o modal sumia atrás da navbar.
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      {/* z-0 no fundo, z-10 no painel: no iOS o backdrop-filter compositava por
+          cima e escondia o painel. z-index explícito garante a ordem. */}
+      <div className="absolute inset-0 z-0 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose} />
       <div
-        className={`relative max-h-[90vh] w-full ${maxWidth} animate-scale-in overflow-y-auto rounded-t-2xl border border-white/10 bg-ink-850 p-4 shadow-2xl safe-bottom sm:rounded-2xl sm:p-5`}
+        className={`relative z-10 max-h-[90vh] w-full ${maxWidth} animate-scale-in overflow-y-auto rounded-t-2xl border border-white/10 bg-ink-850 p-4 shadow-2xl safe-bottom sm:rounded-2xl sm:p-5`}
         role="dialog"
         aria-modal="true"
       >

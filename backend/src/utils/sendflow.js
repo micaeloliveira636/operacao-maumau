@@ -54,6 +54,37 @@ async function fetchComTimeout(url, opts = {}, ms = 20000) {
   }
 }
 
+// Throttle global: garante um intervalo mínimo entre chamadas ao SendFlow
+// (evita estourar o rate limit por segundo no "Montar o dia").
+let ultimaChamada = 0;
+const INTERVALO_MIN_MS = 650;
+async function respeitarIntervalo() {
+  const espera = ultimaChamada + INTERVALO_MIN_MS - Date.now();
+  if (espera > 0) await new Promise((r) => setTimeout(r, espera));
+  ultimaChamada = Date.now();
+}
+
+// Fetch com throttle + retry automático quando o SendFlow responde
+// 403 rate-limit-exceeded (limite TEMPORÁRIO, diferente do api-key-blocked).
+// Espera o retryAfterMs (com teto) e tenta de novo. NÃO faz retry em
+// api-key-blocked (bloqueio longo — deixa o motor tratar/parar).
+async function fetchSendflow(url, opts = {}, ms = 20000) {
+  for (let tentativa = 0; ; tentativa++) {
+    await respeitarIntervalo();
+    const resp = await fetchComTimeout(url, opts, ms);
+    if (resp.status === 403 && tentativa < 2) {
+      const txt = await resp.clone().text().catch(() => '');
+      if (/rate-limit-exceeded/i.test(txt)) {
+        const m = txt.match(/retryAfterMs"?\s*:\s*(\d+)/);
+        const espera = Math.min(m ? Number(m[1]) : 1000, 65000);
+        await new Promise((r) => setTimeout(r, espera + 150));
+        continue;
+      }
+    }
+    return resp;
+  }
+}
+
 /**
  * Chips (accountIds) da campanha — fonte autoritativa é o `release.accountIds`
  * (confirmado no manual e testado: ATIVOS 2 = 5 chips). Buscar SEMPRE fresco,
@@ -66,7 +97,7 @@ async function buscarAccountIds(releaseId) {
   const relPath = (await cfg.get('sendflow_releases_path')) || '/releases/:releaseId';
   const relUrl = b + relPath.replace(':releaseId', encodeURIComponent(releaseId));
 
-  const rr = await fetchComTimeout(relUrl, { headers: H });
+  const rr = await fetchSendflow(relUrl, { headers: H });
   if (!rr.ok) {
     const txt = await rr.text().catch(() => '');
     throw new Error(`Release ${releaseId}: ${rr.status} ${txt.slice(0, 160)}`);
@@ -115,7 +146,7 @@ async function agendarAcao({
   void mentionAll;
 
   try {
-    const resp = await fetchComTimeout(endpoint, {
+    const resp = await fetchSendflow(endpoint, {
       method: 'POST',
       headers: await headers(),
       body: JSON.stringify(body),
@@ -182,7 +213,7 @@ async function agendarComMencao({
   };
 
   try {
-    const resp = await fetchComTimeout(endpoint, {
+    const resp = await fetchSendflow(endpoint, {
       method: 'POST',
       headers: await headers(),
       body: JSON.stringify(body),
@@ -210,7 +241,7 @@ async function deletarAcoes(actionIds) {
   const b = await base();
   const acoes = (await cfg.get('sendflow_send_path')) || '/actions';
   try {
-    const resp = await fetchComTimeout(`${b}${acoes}/delete`, {
+    const resp = await fetchSendflow(`${b}${acoes}/delete`, {
       method: 'POST',
       headers: await headers(),
       body: JSON.stringify({ actions: actionIds }),
