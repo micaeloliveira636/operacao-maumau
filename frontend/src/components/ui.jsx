@@ -273,11 +273,14 @@ export function Modal({ open, onClose, titulo, children, maxWidth = 'max-w-lg' }
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center p-0 sm:items-center sm:p-4">
+  // Portal para o body: escapa de ancestrais com `transform`/`filter`
+  // (ex.: animate-fade-up da página), que ancoram o position:fixed e criam
+  // contexto de empilhamento — no mobile o modal sumia atrás da navbar.
+  return createPortal(
+    <div className="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
       <div
-        className={`relative w-full ${maxWidth} animate-scale-in rounded-t-2xl border border-white/10 bg-ink-850 p-4 shadow-2xl sm:rounded-2xl sm:p-5`}
+        className={`relative max-h-[90vh] w-full ${maxWidth} animate-scale-in overflow-y-auto rounded-t-2xl border border-white/10 bg-ink-850 p-4 shadow-2xl safe-bottom sm:rounded-2xl sm:p-5`}
         role="dialog"
         aria-modal="true"
       >
@@ -291,6 +294,7 @@ export function Modal({ open, onClose, titulo, children, maxWidth = 'max-w-lg' }
         )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
