@@ -481,6 +481,11 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
         cacheChips.set(s.releaseId, atuais);
       }
     } catch (e) {
+      if (ehBloqueioKey(e.message)) {
+        res.bloqueado = true;
+        res.erros.push(msgBloqueio(e.message));
+        break; // não segue chamando com a key bloqueada (evita novas violações)
+      }
       res.erros.push(`${s.releaseId}: ${e.message}`);
       continue;
     }
@@ -510,6 +515,11 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
       : await sendflow.agendarAcao({ ...comum, mentionAll: Boolean(s.mencionar) });
 
     if (!envio.ok) {
+      if (ehBloqueioKey(envio.error)) {
+        res.bloqueado = true;
+        res.erros.push(msgBloqueio(envio.error));
+        break;
+      }
       res.erros.push(`${s.releaseId} ${scheduledTo}: falha ao recriar — ${envio.error}`);
       continue;
     }
