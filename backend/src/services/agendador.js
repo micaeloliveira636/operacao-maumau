@@ -11,6 +11,21 @@ function norm(s) {
   return String(s || '').trim().toUpperCase();
 }
 
+// Detecta o bloqueio de API key do SendFlow (403 api-key-blocked) e estima em
+// quantas horas libera. Quando bloqueado, NÃO adianta seguir chamando —
+// paramos na hora pra não prolongar a punição.
+function ehBloqueioKey(msg) {
+  return /api-key-blocked/i.test(String(msg || ''));
+}
+function horasBloqueio(msg) {
+  const m = String(msg || '').match(/retryAfterMs"?\s*:\s*(\d+)/);
+  return m ? Math.max(1, Math.ceil(Number(m[1]) / 3600000)) : null;
+}
+function msgBloqueio(msg) {
+  const h = horasBloqueio(msg);
+  return `SendFlow bloqueou a API key temporariamente${h ? ` (~${h}h p/ liberar)` : ''}. Envio interrompido — nada mais foi criado. Troque o token em Ajustes ou aguarde.`;
+}
+
 // Demanda "auto-gerida": o admin criou para si mesmo. Nesse caso não há
 // fluxo de aprovação — as mídias já contam como prontas para agendar.
 function ehAutoGerida(demanda) {
@@ -344,6 +359,11 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
         accountIds = await sendflow.buscarAccountIds(item.releaseId);
         accountCache.set(item.releaseId, accountIds);
       } catch (err) {
+        if (ehBloqueioKey(err.message)) {
+          resultados.bloqueado = true;
+          resultados.erros.push(msgBloqueio(err.message));
+          break;
+        }
         // Campanha sem chips agora (ex.: AQUECIMENTO de manhã) é AVISO, não
         // erro fatal — não pode travar (400) o agendamento das outras campanhas.
         const semChips = /sem chips/i.test(err.message);
@@ -378,6 +398,12 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
         });
 
     if (!envio.ok) {
+      // Bloqueio de API key: para tudo na hora (não adianta seguir chamando).
+      if (ehBloqueioKey(envio.error)) {
+        resultados.bloqueado = true;
+        resultados.erros.push(msgBloqueio(envio.error));
+        break;
+      }
       resultados.erros.push(`${item.campanha} ${item.horario} (${item.variante}): ${envio.error}`);
       continue;
     }
