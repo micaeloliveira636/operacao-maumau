@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { STATUS } from '../lib/constants';
+import { STATUS, CAMPANHAS } from '../lib/constants';
 import { formatarData } from '../lib/format';
 import { StatusBadge, CategoriaTag, LoadingScreen, EmptyState, Modal, Spinner, Select } from '../components/ui';
 import { WhatsappPreview } from '../components/WhatsappPreview';
@@ -126,6 +126,22 @@ export default function DemandaDetalhe() {
       const { demanda: upd } = await api.patch(`/demandas/${id}`, { slots: novosSlots });
       setDemanda(upd);
       toast.sucesso('Espaços atualizados');
+    } catch (err) {
+      toast.erro(err.message);
+    }
+  }
+
+  async function toggleCampanha(nome) {
+    const atuais = demanda.campanhasDestino || [];
+    const novas = atuais.includes(nome) ? atuais.filter((c) => c !== nome) : [...atuais, nome];
+    if (novas.length === 0) return toast.erro('Deixe ao menos uma campanha');
+    // mantém a ordem de CAMPANHAS e recalcula os releaseIds na mesma ordem
+    const ordenadas = CAMPANHAS.filter((c) => novas.includes(c.nome)).map((c) => c.nome);
+    const releaseIds = ordenadas.map((n) => CAMPANHAS.find((c) => c.nome === n)?.releaseId).filter(Boolean);
+    try {
+      const { demanda: upd } = await api.patch(`/demandas/${id}`, { campanhasDestino: ordenadas, releaseIds });
+      setDemanda(upd);
+      toast.sucesso('Campanhas atualizadas');
     } catch (err) {
       toast.erro(err.message);
     }
@@ -256,14 +272,31 @@ export default function DemandaDetalhe() {
           <Info icon="users" label="Menção" valor={demanda.mencionar ? 'Sim' : 'Não'} />
         </div>
 
-        {(demanda.campanhasDestino || []).length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {demanda.campanhasDestino.map((c) => (
-              <span key={c} className="rounded-lg bg-brand-500/10 px-2 py-1 text-xs font-medium text-brand-200">
-                {c}
-              </span>
-            ))}
+        {isAdmin && !['agendado', 'concluido'].includes(demanda.status) ? (
+          <div className="mt-4">
+            <p className="mb-1.5 text-xs text-slate-500">Campanhas (toque para ligar/desligar)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {CAMPANHAS.map((c) => {
+                const on = (demanda.campanhasDestino || []).includes(c.nome);
+                return (
+                  <button key={c.nome} type="button" onClick={() => toggleCampanha(c.nome)}
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${on ? 'border-brand-400/50 bg-brand-500/15 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'}`}>
+                    {c.nome}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        ) : (
+          (demanda.campanhasDestino || []).length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {demanda.campanhasDestino.map((c) => (
+                <span key={c} className="rounded-lg bg-brand-500/10 px-2 py-1 text-xs font-medium text-brand-200">
+                  {c}
+                </span>
+              ))}
+            </div>
+          )
         )}
 
         {demanda.status === 'rejeitado' && demanda.motivoRejeicao && (
