@@ -323,6 +323,10 @@ async function executarAgendamento(demanda, arquivos, userId) {
  */
 async function executarItens(demanda, itens, avisos, userId, tipoJob) {
   // Cria o job de automação (idempotência de execução).
+  // A coluna `type` tem um CHECK que só aceita agendamento|notificacao|
+  // cancelamento — então gravamos 'agendamento' e guardamos o tipo real
+  // (ex.: agendamento-texto) no payload e na chave de idempotência.
+  const tipoDb = ['agendamento', 'notificacao', 'cancelamento'].includes(tipoJob) ? tipoJob : 'agendamento';
   const idempotencyKey = `${tipoJob}:${demanda.id}:${demanda.updatedAt?.toISOString?.() || Date.now()}`;
   let job;
   try {
@@ -330,14 +334,18 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
       .insert(automationJobs)
       .values({
         demandaId: demanda.id,
-        type: tipoJob,
-        payloadJson: { total: itens.length },
+        type: tipoDb,
+        payloadJson: { total: itens.length, tipo: tipoJob },
         status: 'processing',
         idempotencyKey,
       })
       .returning();
-  } catch {
-    // já existe job com essa chave (execução duplicada) — segue sem duplicar
+  } catch (e) {
+    // Duplicado (mesma chave) é esperado; outros erros a gente loga, mas não
+    // derruba o agendamento (o job é só rastreio interno).
+    if (!/duplicate|unique/i.test(e?.cause?.message || e?.message || '')) {
+      console.error('Falha ao criar automation_job (seguindo mesmo assim):', e?.cause?.message || e?.message);
+    }
   }
 
   const accountCache = new Map();

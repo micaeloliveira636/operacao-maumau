@@ -71,7 +71,7 @@ async function migrate() {
     CREATE TABLE IF NOT EXISTS automation_jobs (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       demanda_id UUID REFERENCES demandas(id) ON DELETE CASCADE,
-      type VARCHAR(30) NOT NULL CHECK (type IN ('agendamento','notificacao','cancelamento')),
+      type VARCHAR(30) NOT NULL CHECK (type IN ('agendamento','agendamento-texto','notificacao','cancelamento')),
       payload_json JSONB NOT NULL,
       status VARCHAR(20) NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending','processing','success','error')),
