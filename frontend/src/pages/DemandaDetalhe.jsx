@@ -262,7 +262,10 @@ export default function DemandaDetalhe() {
   const proximaOrdem = arquivos.length;
   const temSlots = Array.isArray(demanda.slots) && demanda.slots.length > 0;
   const arquivosAprovados = arquivos.filter((a) => a.status === 'aprovado').length;
-  const midiasUsaveis = autoGerida
+  // Demandas COM SLOTS (feedbacks) e auto-geridas agendam qualquer mídia não
+  // rejeitada — igual ao backend (montarPlanoSlots usa status !== 'rejeitado').
+  // Só o fluxo clássico com operador exige mídia aprovada uma a uma.
+  const midiasUsaveis = (autoGerida || temSlots)
     ? arquivos.filter((a) => a.status !== 'rejeitado').length
     : arquivosAprovados;
 
