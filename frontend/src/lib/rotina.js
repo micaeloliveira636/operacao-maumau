@@ -101,14 +101,20 @@ function montarFeedbacks(base, weekday) {
       else if (i === 4) legendaId = feedbackFinalId(e.hora, base.sistemaNovo, weekday, ehUltimaDom);
       return { ordem: i, nome: `Feedback ${i + 1}`, horario: addMin(e.hora, off), legendaId, tipo: 'midia' };
     });
-    grupos.push({ categoria: 'feedback-entrada', titulo: `Feedbacks entrada ${e.hora}`, slots });
+    // Feedback de entrada: SEMPRE só nos ATIVOS.
+    grupos.push({ categoria: 'feedback-entrada', titulo: `Feedbacks entrada ${e.hora}`, campanhas: ['ATIVOS 1', 'ATIVOS 2'], slots });
   });
   for (const pd of base.pedidos) {
     if (['13:00', '15:00', '19:00'].includes(pd.hora)) {
       const slots = [30, 60].map((off, i) => ({
         ordem: i, nome: `Feedback lara ${i + 1}`, horario: addMin(pd.hora, off), legendaId: '', tipo: 'midia',
       }));
-      grupos.push({ categoria: 'feedback-lara', titulo: `Feedbacks lara ${pd.hora}`, slots });
+      // Lara 19h: SEMPRE só AQUECIMENTO. Lara 13h/15h: AQUEC+ATIVOS no sistema
+      // novo (segunda/quinta), só AQUECIMENTO em dia normal (toggle ajusta).
+      const campanhas = pd.hora === '19:00'
+        ? ['AQUECIMENTO']
+        : (base.sistemaNovo ? ['AQUECIMENTO', 'ATIVOS 1', 'ATIVOS 2'] : ['AQUECIMENTO']);
+      grupos.push({ categoria: 'feedback-lara', titulo: `Feedbacks lara ${pd.hora}`, campanhas, slots });
     }
   }
   return grupos;

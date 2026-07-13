@@ -67,8 +67,9 @@ export default function RotinaDia() {
       (r.feedbacks || []).map((g) => ({
         categoria: g.categoria,
         titulo: g.titulo,
-        // Feedbacks de lara vão para AQUECIMENTO; feedbacks de entrada, para os ATIVOS.
-        campanhas: g.categoria === 'feedback-lara' ? ['AQUECIMENTO'] : ['ATIVOS 1', 'ATIVOS 2'],
+        // Campanha padrão vem do roteiro (lara 19h=aquec; 13h/15h=aquec ou +ativos
+        // no sistema novo; entrada=ativos). Editável no toggle depois.
+        campanhas: g.campanhas || (g.categoria === 'feedback-lara' ? ['AQUECIMENTO'] : ['ATIVOS 1', 'ATIVOS 2']),
         slots: g.slots.map((s) => ({
           ordem: s.ordem, nome: s.nome, horario: s.horario, tipo: s.tipo,
           legenda: fbModelos.find((m) => m.id === s.legendaId)?.texto || '',
