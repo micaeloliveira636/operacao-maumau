@@ -64,17 +64,33 @@ async function respeitarIntervalo() {
   ultimaChamada = Date.now();
 }
 
+// Cache local do bloqueio de API key: quando o SendFlow devolve api-key-blocked,
+// guardamos até quando não adianta chamar. Enquanto bloqueado, curto-circuitamos
+// SEM bater na API (cada request durante o bloqueio estende a punição).
+let bloqueadoAte = 0;
+function respostaBloqueada() {
+  const restante = Math.max(0, bloqueadoAte - Date.now());
+  const body = JSON.stringify({ code: 'api-key-blocked', message: 'api-key-blocked (cache local)', retryAfterMs: restante });
+  return { ok: false, status: 403, async text() { return body; }, clone() { return this; } };
+}
+
 // Fetch com throttle + retry automático quando o SendFlow responde
 // 403 rate-limit-exceeded (limite TEMPORÁRIO, diferente do api-key-blocked).
 // Espera o retryAfterMs (com teto) e tenta de novo. NÃO faz retry em
-// api-key-blocked (bloqueio longo — deixa o motor tratar/parar).
+// api-key-blocked (bloqueio longo — registra bloqueadoAte e para de chamar).
 async function fetchSendflow(url, opts = {}, ms = 20000) {
+  if (Date.now() < bloqueadoAte) return respostaBloqueada();
   for (let tentativa = 0; ; tentativa++) {
     await respeitarIntervalo();
     const resp = await fetchComTimeout(url, opts, ms);
-    if (resp.status === 403 && tentativa < 2) {
+    if (resp.status === 403) {
       const txt = await resp.clone().text().catch(() => '');
-      if (/rate-limit-exceeded/i.test(txt)) {
+      if (/api-key-blocked/i.test(txt)) {
+        const m = txt.match(/retryAfterMs"?\s*:\s*(\d+)/);
+        bloqueadoAte = Date.now() + Math.min(m ? Number(m[1]) : 3600000, 24 * 3600000);
+        return resp;
+      }
+      if (/rate-limit-exceeded/i.test(txt) && tentativa < 2) {
         const m = txt.match(/retryAfterMs"?\s*:\s*(\d+)/);
         const espera = Math.min(m ? Number(m[1]) : 1000, 65000);
         await new Promise((r) => setTimeout(r, espera + 150));
@@ -257,7 +273,14 @@ async function deletarAcoes(actionIds) {
 }
 
 /** Testa a conexão buscando um release conhecido. */
+// Zera o cache local de bloqueio (ex.: quando o token é trocado em Ajustes,
+// a chave nova não está bloqueada — precisa poder tentar de novo).
+function limparBloqueio() {
+  bloqueadoAte = 0;
+}
+
 async function testarConexao(releaseId) {
+  limparBloqueio(); // o teste deve realmente bater na API, mesmo se a antiga bloqueou
   if (!(await estaConfigurado())) {
     return { ok: false, error: 'SendFlow não configurado (URL e token)' };
   }
@@ -315,4 +338,5 @@ module.exports = {
   testarConexao,
   estaConfigurado,
   enviarNotificacaoWhatsapp,
+  limparBloqueio,
 };

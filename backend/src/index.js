@@ -79,6 +79,10 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Maumau Media API rodando na porta ${PORT}`);
+  // Auto-corrige constraints defasadas (idempotente) sem bloquear o boot.
+  require('./db/ensureSchema')
+    .ensureSchema()
+    .catch((e) => console.error('ensureSchema falhou:', e.message));
 });
 
 module.exports = app;

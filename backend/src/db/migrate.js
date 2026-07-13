@@ -36,7 +36,7 @@ async function migrate() {
       status VARCHAR(30) NOT NULL DEFAULT 'pendente'
         CHECK (status IN ('pendente','em_andamento','enviado','aprovado',
                           'agendamento_pendente','agendado','erro_agendamento',
-                          'concluido','rejeitado')),
+                          'concluido','rejeitado','texto_agendado')),
       legenda TEXT,
       mencionar BOOLEAN DEFAULT false,
       velocidade VARCHAR(10) DEFAULT 'slow',

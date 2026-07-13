@@ -34,6 +34,10 @@ router.put('/', requireAuth, requireAdmin, async (req, res) => {
       pares[k] = body[k];
     }
     await cfg.setMany(pares);
+    // Trocou o token? A chave nova não está bloqueada — zera o cache de bloqueio.
+    if (pares.sendflow_api_token) {
+      try { require('../utils/sendflow').limparBloqueio(); } catch {}
+    }
 
     await logActivity({
       userId: req.user.id,
