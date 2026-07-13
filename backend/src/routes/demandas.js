@@ -202,8 +202,9 @@ router.post('/rotina', requireAuth, requireAdmin, async (req, res) => {
           } else {
             errosTexto.push(`${nova.titulo}: ${(r.erros || [r.error]).slice(0, 1).join('')}`);
           }
-          // API key bloqueada: para de tentar as demais (evita prolongar o bloqueio).
-          if (r.bloqueado) break;
+          // API key bloqueada OU rate limit: para de tentar as demais
+          // (insistir só prolonga o bloqueio / acumula violações).
+          if (r.bloqueado || r.rateLimited) break;
           // Suaviza a rajada de chamadas ao SendFlow (evita estourar o rate limit).
           await new Promise((res) => setTimeout(res, 350));
         } catch (e) {

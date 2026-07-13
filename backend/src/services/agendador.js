@@ -26,6 +26,20 @@ function msgBloqueio(msg) {
   return `SendFlow bloqueou a API key temporariamente${h ? ` (~${h}h p/ liberar)` : ''}. Envio interrompido — nada mais foi criado. Troque o token em Ajustes ou aguarde.`;
 }
 
+// Rate limit temporário (429 / rate-limit-exceeded). O limitador do SendFlow
+// conta violações — insistir só piora. Ao detectar, paramos o lote na hora e
+// mandamos aguardar; o que já foi agendado fica salvo.
+function ehRateLimit(msg) {
+  return /rate-limit-exceeded|\b429\b/i.test(String(msg || ''));
+}
+function segsEspera(msg) {
+  const m = String(msg || '').match(/retryAfterMs"?\s*:\s*(\d+)/);
+  return m ? Math.max(1, Math.ceil(Number(m[1]) / 1000)) : 60;
+}
+function msgRateLimit(msg) {
+  return `Limite de requisições do SendFlow atingido — aguarde ~${segsEspera(msg)}s e reagende. O que já foi agendado está salvo (nada foi duplicado).`;
+}
+
 // Demanda "auto-gerida": o admin criou para si mesmo. Nesse caso não há
 // fluxo de aprovação — as mídias já contam como prontas para agendar.
 function ehAutoGerida(demanda) {
@@ -392,6 +406,11 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
           resultados.erros.push(msgBloqueio(err.message));
           break;
         }
+        if (ehRateLimit(err.message)) {
+          resultados.rateLimited = true;
+          resultados.erros.push(msgRateLimit(err.message));
+          break;
+        }
         // Campanha sem chips agora (ex.: AQUECIMENTO de manhã) é AVISO, não
         // erro fatal — não pode travar (400) o agendamento das outras campanhas.
         const semChips = /sem chips/i.test(err.message);
@@ -430,6 +449,12 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
       if (ehBloqueioKey(envio.error)) {
         resultados.bloqueado = true;
         resultados.erros.push(msgBloqueio(envio.error));
+        break;
+      }
+      // Rate limit: para o lote (insistir gera mais violação).
+      if (ehRateLimit(envio.error)) {
+        resultados.rateLimited = true;
+        resultados.erros.push(msgRateLimit(envio.error));
         break;
       }
       resultados.erros.push(`${item.campanha} ${item.horario} (${item.variante}): ${envio.error}`);
@@ -508,7 +533,8 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
     try {
       atuais = cacheChips.get(s.releaseId);
       if (!atuais) {
-        atuais = await sendflow.buscarAccountIds(s.releaseId);
+        // fresh: o cron É quem detecta mudança de chip — não pode usar cache.
+        atuais = await sendflow.buscarAccountIds(s.releaseId, { fresh: true });
         cacheChips.set(s.releaseId, atuais);
       }
     } catch (e) {
@@ -516,6 +542,11 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
         res.bloqueado = true;
         res.erros.push(msgBloqueio(e.message));
         break; // não segue chamando com a key bloqueada (evita novas violações)
+      }
+      if (ehRateLimit(e.message)) {
+        res.rateLimited = true;
+        res.erros.push(msgRateLimit(e.message));
+        break; // idem: rate limit conta violação, parar já
       }
       res.erros.push(`${s.releaseId}: ${e.message}`);
       continue;
@@ -549,6 +580,11 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
       if (ehBloqueioKey(envio.error)) {
         res.bloqueado = true;
         res.erros.push(msgBloqueio(envio.error));
+        break;
+      }
+      if (ehRateLimit(envio.error)) {
+        res.rateLimited = true;
+        res.erros.push(msgRateLimit(envio.error));
         break;
       }
       res.erros.push(`${s.releaseId} ${scheduledTo}: falha ao recriar — ${envio.error}`);

@@ -55,12 +55,16 @@ async function fetchComTimeout(url, opts = {}, ms = 20000) {
 }
 
 // Throttle global: garante um intervalo mínimo entre chamadas ao SendFlow
-// (evita estourar o rate limit por segundo no "Montar o dia").
+// (evita estourar o rate limit por segundo no "Montar o dia"). Com uma pequena
+// variação aleatória pra não bater sempre no mesmo "tick" do limitador.
 let ultimaChamada = 0;
-const INTERVALO_MIN_MS = 650;
+const INTERVALO_MIN_MS = 950;
 async function respeitarIntervalo() {
-  const espera = ultimaChamada + INTERVALO_MIN_MS - Date.now();
-  if (espera > 0) await new Promise((r) => setTimeout(r, espera));
+  // Se estamos em cooldown de rate limit, espera até ele passar (o limitador
+  // conta VIOLAÇÕES: bater durante a punição só acumula mais violação).
+  const alvo = Math.max(ultimaChamada + INTERVALO_MIN_MS, limiteAte);
+  const espera = alvo - Date.now();
+  if (espera > 0) await new Promise((r) => setTimeout(r, espera + Math.floor(Math.random() * 120)));
   ultimaChamada = Date.now();
 }
 
@@ -74,31 +78,40 @@ function respostaBloqueada() {
   return { ok: false, status: 403, async text() { return body; }, clone() { return this; } };
 }
 
-// Fetch com throttle + retry automático quando o SendFlow responde
-// 403 rate-limit-exceeded (limite TEMPORÁRIO, diferente do api-key-blocked).
-// Espera o retryAfterMs (com teto) e tenta de novo. NÃO faz retry em
-// api-key-blocked (bloqueio longo — registra bloqueadoAte e para de chamar).
+// Cooldown de rate limit (403 rate-limit-exceeded). Diferente do bloqueio de key:
+// é curto (o SendFlow pede "aguarde ~1 min"). O ponto CRÍTICO: o limitador conta
+// violações, então NÃO se faz retry (cada nova batida = nova violação, e 5
+// violações = bloqueio temporário). Em vez disso, registramos até quando não
+// pode chamar e curto-circuitamos TODAS as chamadas (agendamento E cron) nessa
+// janela — assim uma violação não vira cinco.
+let limiteAte = 0;
+function respostaLimitada() {
+  const restante = Math.max(0, limiteAte - Date.now());
+  const body = JSON.stringify({ code: 'rate-limit-exceeded', message: 'rate-limit-exceeded (cooldown local)', retryAfterMs: restante });
+  return { ok: false, status: 429, async text() { return body; }, clone() { return this; } };
+}
+
+// Fetch com throttle + tratamento de rate limit SEM retry (retry gera violação).
+// Ao levar rate-limit-exceeded, registra o cooldown e devolve o erro na hora;
+// as próximas chamadas esperam o cooldown passar (ou são curto-circuitadas).
 async function fetchSendflow(url, opts = {}, ms = 20000) {
   if (Date.now() < bloqueadoAte) return respostaBloqueada();
-  for (let tentativa = 0; ; tentativa++) {
-    await respeitarIntervalo();
-    const resp = await fetchComTimeout(url, opts, ms);
-    if (resp.status === 403) {
-      const txt = await resp.clone().text().catch(() => '');
-      if (/api-key-blocked/i.test(txt)) {
-        const m = txt.match(/retryAfterMs"?\s*:\s*(\d+)/);
-        bloqueadoAte = Date.now() + Math.min(m ? Number(m[1]) : 3600000, 24 * 3600000);
-        return resp;
-      }
-      if (/rate-limit-exceeded/i.test(txt) && tentativa < 2) {
-        const m = txt.match(/retryAfterMs"?\s*:\s*(\d+)/);
-        const espera = Math.min(m ? Number(m[1]) : 1000, 65000);
-        await new Promise((r) => setTimeout(r, espera + 150));
-        continue;
-      }
+  if (Date.now() < limiteAte) return respostaLimitada();
+  await respeitarIntervalo();
+  const resp = await fetchComTimeout(url, opts, ms);
+  if (resp.status === 403 || resp.status === 429) {
+    const txt = await resp.clone().text().catch(() => '');
+    if (/api-key-blocked/i.test(txt)) {
+      const m = txt.match(/retryAfterMs"?\s*:\s*(\d+)/);
+      bloqueadoAte = Date.now() + Math.min(m ? Number(m[1]) : 3600000, 24 * 3600000);
+    } else if (/rate-limit-exceeded/i.test(txt) || resp.status === 429) {
+      const m = txt.match(/retryAfterMs"?\s*:\s*(\d+)/);
+      // teto de 5 min; piso de 60s (o SendFlow pede ~1 min entre requisições).
+      const espera = Math.min(Math.max(m ? Number(m[1]) : 60000, 60000), 5 * 60000);
+      limiteAte = Date.now() + espera;
     }
-    return resp;
   }
+  return resp;
 }
 
 /**
@@ -107,7 +120,18 @@ async function fetchSendflow(url, opts = {}, ms = 20000) {
  * pois os chips caem/entram ao longo do dia. Vazio = campanha sem chips agora
  * (ex.: caíram todos) — o chamador deve pular/avisar, NÃO usar outros chips.
  */
-async function buscarAccountIds(releaseId) {
+// Cache curto dos chips por release (corta a rajada de GETs quando o "Montar o
+// dia" agenda várias demandas seguidas nas mesmas campanhas). TTL curto porque
+// os chips caem/entram ao longo do dia. O cron de reconferência passa
+// { fresh:true } pra ignorar o cache (é justamente ele que detecta a mudança).
+const chipsCache = new Map(); // releaseId -> { ids, ts }
+const CHIPS_TTL_MS = 60000;
+
+async function buscarAccountIds(releaseId, { fresh = false } = {}) {
+  if (!fresh) {
+    const c = chipsCache.get(String(releaseId));
+    if (c && Date.now() - c.ts < CHIPS_TTL_MS && c.ids.length) return c.ids;
+  }
   const b = await base();
   const H = await headers();
   const relPath = (await cfg.get('sendflow_releases_path')) || '/releases/:releaseId';
@@ -123,6 +147,7 @@ async function buscarAccountIds(releaseId) {
   if (ids.length === 0) {
     throw new Error(`Campanha sem chips no momento (accountIds vazio) — release ${releaseId}`);
   }
+  chipsCache.set(String(releaseId), { ids, ts: Date.now() });
   return ids;
 }
 
