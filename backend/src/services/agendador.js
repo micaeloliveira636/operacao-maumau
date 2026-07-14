@@ -1,4 +1,4 @@
-const { and, eq, gte, lte, isNull } = require('drizzle-orm');
+const { and, eq, gte, lte, isNull, inArray } = require('drizzle-orm');
 const { db } = require('../db');
 const { sendflowSchedules, automationJobs } = require('../db/schema');
 const sendflow = require('../utils/sendflow');
@@ -234,10 +234,13 @@ function montarPlanoTexto(demanda) {
   const shippingSpeed = ehEntrada ? 'normal' : demanda.velocidade || 'slow';
   const mentionAll = ehPedido ? false : Boolean(demanda.mencionar);
   const linkPrincipal = demanda.linkPrincipal || '';
-  // com link do dia -> insere no texto; sem link -> remove o {link}
-  const legendaBase = linkPrincipal
-    ? montarLegenda(demanda.legenda || '', linkPrincipal)
-    : String(demanda.legenda || '').replace(/\{link\}/g, '').trim();
+  const linkDois = demanda.linkDois || '';
+  // monta a legenda com um link específico; sem link -> remove o {link}
+  const legendaCom = (link) =>
+    link
+      ? montarLegenda(demanda.legenda || '', link)
+      : String(demanda.legenda || '').replace(/\{link\}/g, '').trim();
+  const legendaBase = legendaCom(linkPrincipal);
   const horarios = (demanda.horarios || []).filter(Boolean);
 
   if (!String(demanda.legenda || '').trim()) avisos.push('Demanda sem texto para agendar.');
@@ -258,6 +261,16 @@ function montarPlanoTexto(demanda) {
         variante: 'texto', tipo: 'text', url: null, legenda: legendaBase,
         shippingSpeed, mentionAll, scheduledTo,
       });
+      // REGRA: ATIVOS 1 entrada com 2 links -> segunda mensagem (2º link) no
+      // mesmo horário. Igual ao plano com mídia — o provisório também precisa
+      // reservar as DUAS mensagens, senão o 2º link fica de fora.
+      if (ehEntrada && norm(camp.nome) === norm(ATIVOS1) && linkDois) {
+        itens.push({
+          arquivoId: null, horario, campanha: camp.nome, releaseId: camp.releaseId,
+          variante: 'texto-link2', tipo: 'text', url: null, legenda: legendaCom(linkDois),
+          shippingSpeed, mentionAll, scheduledTo,
+        });
+      }
     }
   }
   return { itens, avisos };
@@ -268,7 +281,10 @@ async function apagarProvisorios(demandaId) {
   const rows = await db
     .select()
     .from(sendflowSchedules)
-    .where(and(eq(sendflowSchedules.demandaId, demandaId), eq(sendflowSchedules.variante, 'texto')));
+    .where(and(
+      eq(sendflowSchedules.demandaId, demandaId),
+      inArray(sendflowSchedules.variante, ['texto', 'texto-link2'])
+    ));
   const ativos = rows.filter((r) => r.status !== 'cancelado');
   const actionIds = [];
   for (const s of ativos) {
