@@ -11,6 +11,20 @@ function norm(s) {
   return String(s || '').trim().toUpperCase();
 }
 
+// SEGMENTAÇÃO ATIVOS 1 (entrada com 2 links): por NOME de grupo.
+//  - link 2  -> grupos com ⚜️ (TRAMPO VIP / OPERAÇÃO MAUMAU)
+//  - link 1  -> o resto (COMUNIDADE MAUMAU + LARAS MAUMAU)
+// Regra por nome (não por id) pra pegar grupos novos automaticamente.
+function ehGrupoLink2(nome) {
+  return /⚜️|⚜|TRAMPO\s*VIP|OPERA[ÇC][ÃA]O/i.test(String(nome || ''));
+}
+// Divide a lista de grupos { id, name } nos dois conjuntos.
+function dividirGruposPorLink(grupos) {
+  const link2 = [], link1 = [];
+  for (const g of grupos || []) (ehGrupoLink2(g.name) ? link2 : link1).push(String(g.id));
+  return { link1, link2 };
+}
+
 // Detecta o bloqueio de API key do SendFlow (403 api-key-blocked) e estima em
 // quantas horas libera. Quando bloqueado, NÃO adianta seguir chamando —
 // paramos na hora pra não prolongar a punição.
@@ -177,6 +191,9 @@ function montarPlano(demanda, arquivos) {
       }
 
       const ehAtivos1 = norm(camp.nome) === norm(ATIVOS1);
+      // Vai dividir por grupos? Só ATIVOS 1 entrada com 2 links. Aí o principal
+      // vai só pros grupos do link 1 e o 2º link só pros grupos ⚜️.
+      const vaiDividir = ehAtivos1 && ehEntrada && Boolean(linkDois);
 
       // Mensagem principal (link principal)
       itens.push({
@@ -186,6 +203,7 @@ function montarPlano(demanda, arquivos) {
         campanha: camp.nome,
         releaseId: camp.releaseId,
         variante: 'principal',
+        grupoFiltro: vaiDividir ? 'link1' : null,
         tipo,
         url,
         legenda: montarLegenda(legendaBase, linkPrincipal),
@@ -195,7 +213,7 @@ function montarPlano(demanda, arquivos) {
       });
 
       // REGRA: ATIVOS 1 entrada com 2 links -> segunda mensagem no mesmo horário
-      if (ehAtivos1 && ehEntrada && linkDois) {
+      if (vaiDividir) {
         itens.push({
           arquivoId: arq.id,
           ordem: arq.ordem,
@@ -203,6 +221,7 @@ function montarPlano(demanda, arquivos) {
           campanha: camp.nome,
           releaseId: camp.releaseId,
           variante: 'link2',
+          grupoFiltro: 'link2',
           tipo,
           url,
           legenda: montarLegenda(legendaBase, linkDois),
@@ -256,18 +275,22 @@ function montarPlanoTexto(demanda) {
         avisos.push(`Campanha ${camp.nome} sem releaseId — pulado.`);
         continue;
       }
+      const vaiDividir = ehEntrada && norm(camp.nome) === norm(ATIVOS1) && Boolean(linkDois);
       itens.push({
         arquivoId: null, horario, campanha: camp.nome, releaseId: camp.releaseId,
-        variante: 'texto', tipo: 'text', url: null, legenda: legendaBase,
+        variante: 'texto', grupoFiltro: vaiDividir ? 'link1' : null,
+        tipo: 'text', url: null, legenda: legendaBase,
         shippingSpeed, mentionAll, scheduledTo,
       });
       // REGRA: ATIVOS 1 entrada com 2 links -> segunda mensagem (2º link) no
       // mesmo horário. Igual ao plano com mídia — o provisório também precisa
-      // reservar as DUAS mensagens, senão o 2º link fica de fora.
-      if (ehEntrada && norm(camp.nome) === norm(ATIVOS1) && linkDois) {
+      // reservar as DUAS mensagens, senão o 2º link fica de fora. O principal
+      // vai só pros grupos do link 1 e este 2º link só pros grupos ⚜️.
+      if (vaiDividir) {
         itens.push({
           arquivoId: null, horario, campanha: camp.nome, releaseId: camp.releaseId,
-          variante: 'texto-link2', tipo: 'text', url: null, legenda: legendaCom(linkDois),
+          variante: 'texto-link2', grupoFiltro: 'link2',
+          tipo: 'text', url: null, legenda: legendaCom(linkDois),
           shippingSpeed, mentionAll, scheduledTo,
         });
       }
@@ -379,6 +402,7 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
   }
 
   const accountCache = new Map();
+  const grupoCache = new Map(); // releaseId -> { link1:[ids], link2:[ids] }
   const resultados = { agendadas: 0, puladas: 0, erros: [] };
 
   for (const item of itens) {
@@ -437,6 +461,34 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
     }
     if (!accountIds || accountIds.length === 0) continue;
 
+    // SEGMENTAÇÃO POR GRUPOS (ATIVOS 1 entrada, 2 links): resolve os grupos do
+    // release e escolhe o conjunto conforme o item (link1 = COMUNIDADE+LARAS,
+    // link2 = ⚜️). Sem grupoFiltro -> release inteira (grupoIds undefined).
+    let grupoIds;
+    if (item.grupoFiltro) {
+      let grupos;
+      if (grupoCache.has(item.releaseId)) {
+        grupos = grupoCache.get(item.releaseId);
+      } else {
+        try {
+          grupos = dividirGruposPorLink(await sendflow.buscarGrupos(item.releaseId));
+          grupoCache.set(item.releaseId, grupos);
+        } catch (err) {
+          if (ehBloqueioKey(err.message)) { resultados.bloqueado = true; resultados.erros.push(msgBloqueio(err.message)); break; }
+          if (ehRateLimit(err.message)) { resultados.rateLimited = true; resultados.erros.push(msgRateLimit(err.message)); break; }
+          resultados.erros.push(`${item.campanha} (grupos): ${err.message}`);
+          grupoCache.set(item.releaseId, null);
+          continue;
+        }
+      }
+      if (!grupos) continue;
+      grupoIds = item.grupoFiltro === 'link2' ? grupos.link2 : grupos.link1;
+      if (!grupoIds.length) {
+        avisos.push(`${item.campanha} ${item.horario}: nenhum grupo para ${item.grupoFiltro} — pulado.`);
+        continue;
+      }
+    }
+
     // UMA ação por campanha, com TODOS os chips (o SendFlow distribui).
     // Com menção -> batch (mídia separada do texto que marca todos).
     const envio = item.mentionAll
@@ -448,6 +500,7 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
           mensagem: item.legenda,
           scheduledTo: item.scheduledTo,
           shippingSpeed: item.shippingSpeed,
+          grupoIds,
         })
       : await sendflow.agendarAcao({
           tipo: item.tipo,
@@ -458,6 +511,7 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
           scheduledTo: item.scheduledTo,
           shippingSpeed: item.shippingSpeed,
           mentionAll: item.mentionAll,
+          grupoIds,
         });
 
     if (!envio.ok) {
@@ -496,7 +550,8 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
       velocidade: item.shippingSpeed,
       scheduledTo: new Date(item.scheduledTo),
       status: 'agendado',
-      resultJson: { actionIds },
+      // grupoFiltro guardado p/ o reconferirChips re-segmentar ao recriar.
+      resultJson: { actionIds, grupoFiltro: item.grupoFiltro || null },
     });
     resultados.agendadas += 1;
   }
@@ -578,6 +633,26 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
       : (s.sendflowActionId ? [s.sendflowActionId] : []);
     if (antigos.length) await sendflow.deletarAcoes(antigos).catch(() => {});
 
+    // Segmentação por grupos (ATIVOS 1 entrada) preservada na recriação: se o
+    // schedule tinha grupoFiltro, recalcula os grupos atuais e re-segmenta.
+    let grupoIds;
+    const grupoFiltro = s.resultJson?.grupoFiltro || null;
+    if (grupoFiltro) {
+      try {
+        const div = dividirGruposPorLink(await sendflow.buscarGrupos(s.releaseId, { fresh: true }));
+        grupoIds = grupoFiltro === 'link2' ? div.link2 : div.link1;
+      } catch (e) {
+        if (ehBloqueioKey(e.message)) { res.bloqueado = true; res.erros.push(msgBloqueio(e.message)); break; }
+        if (ehRateLimit(e.message)) { res.rateLimited = true; res.erros.push(msgRateLimit(e.message)); break; }
+        res.erros.push(`${s.releaseId} (grupos): ${e.message}`);
+        continue;
+      }
+      if (!grupoIds || !grupoIds.length) {
+        res.erros.push(`${s.releaseId}: sem grupos para ${grupoFiltro} ao reconferir — pulado.`);
+        continue;
+      }
+    }
+
     const scheduledTo = new Date(s.scheduledTo).toISOString();
     const comum = {
       tipo: s.tipoEnvio,
@@ -587,6 +662,7 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
       mensagem: s.legenda || '',
       scheduledTo,
       shippingSpeed: s.velocidade || 'slow',
+      grupoIds,
     };
     const envio = s.mencionar
       ? await sendflow.agendarComMencao(comum)
@@ -613,7 +689,7 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
       .set({
         accountIds: atuais,
         sendflowActionId: envio.actionId || null,
-        resultJson: { actionIds: novos, reagendado: true, em: agora.toISOString() },
+        resultJson: { actionIds: novos, reagendado: true, em: agora.toISOString(), grupoFiltro },
       })
       .where(eq(sendflowSchedules.id, s.id));
     res.reagendados += 1;

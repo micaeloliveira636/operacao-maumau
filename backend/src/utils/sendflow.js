@@ -152,10 +152,39 @@ async function buscarAccountIds(releaseId, { fresh = false } = {}) {
 }
 
 /**
+ * Grupos (com id) de um release. Fonte: GET /releases/:id/groups -> array
+ * [{ id, name, ... }]. Usado pra segmentar o envio por grupos específicos
+ * (ex.: ATIVOS 1 entrada com 2 links — cada link vai pra um conjunto de grupos
+ * separado por nome). Cache curto igual aos chips.
+ */
+const gruposCache = new Map(); // releaseId -> { grupos, ts }
+async function buscarGrupos(releaseId, { fresh = false } = {}) {
+  if (!fresh) {
+    const c = gruposCache.get(String(releaseId));
+    if (c && Date.now() - c.ts < CHIPS_TTL_MS && c.grupos.length) return c.grupos;
+  }
+  const b = await base();
+  const H = await headers();
+  const rr = await fetchSendflow(`${b}/releases/${encodeURIComponent(releaseId)}/groups`, { headers: H });
+  if (!rr.ok) {
+    const txt = await rr.text().catch(() => '');
+    throw new Error(`Grupos do release ${releaseId}: ${rr.status} ${txt.slice(0, 160)}`);
+  }
+  const arr = await rr.json().catch(() => []);
+  const grupos = (Array.isArray(arr) ? arr : arr.items || [])
+    .filter((g) => g && g.id)
+    .map((g) => ({ id: String(g.id), name: String(g.name || '') }));
+  if (grupos.length) gruposCache.set(String(releaseId), { grupos, ts: Date.now() });
+  return grupos;
+}
+
+/**
  * Agenda UMA ação para a campanha, usando TODOS os chips de uma vez
  * (accountIds no corpo — o SendFlow distribui o envio entre as contas).
  * IMPORTANTE: é UMA ação por campanha, não uma por chip; passar um chip por
  * chamada faz o grupo receber a mensagem N vezes (uma por chip).
+ * Se `grupoIds` vier preenchido, o envio é segmentado (só esses grupos) via
+ * /actions/send-messages com to:{type:'groups'} — senão vai pra release inteira.
  * @returns {Promise<{ok, actionId?, error?, raw?}>}
  */
 async function agendarAcao({
@@ -167,7 +196,16 @@ async function agendarAcao({
   scheduledTo, // ISO 8601 com offset -03:00
   shippingSpeed,
   mentionAll,
+  grupoIds, // opcional: segmenta o envio nesses grupos
 }) {
+  void mentionAll; // menção roteia p/ agendarComMencao; aqui é ignorado
+
+  // Envio SEGMENTADO por grupos -> batch /actions/send-messages (única forma
+  // que aceita to:{type:'groups'}). Uma mensagem (mídia c/ legenda OU texto).
+  if (Array.isArray(grupoIds) && grupoIds.length) {
+    return agendarParaGrupos({ tipo, accountIds, releaseId, url, mensagem, scheduledTo, shippingSpeed, grupoIds });
+  }
+
   const b = await base();
   const acoes = (await cfg.get('sendflow_send_path')) || '/actions';
   // Envio de CAMPANHA: /actions/send-{tipo}-message  (accountIds no corpo).
@@ -180,11 +218,6 @@ async function agendarAcao({
     tipo === 'text'
       ? { ...comum, messageText: mensagem || '' }
       : { ...comum, url, caption: mensagem || '' };
-
-  // OBS: a menção a todos (mentionAll) NÃO existe neste endpoint simples —
-  // quando pedida, o motor roteia para `agendarComMencao` (/actions/send-messages).
-  // Aqui o parâmetro é ignorado de propósito.
-  void mentionAll;
 
   try {
     const resp = await fetchSendflow(endpoint, {
@@ -210,6 +243,61 @@ async function agendarAcao({
 }
 
 /**
+ * Envio SEGMENTADO para grupos específicos (sem menção). Única forma suportada
+ * é o batch /actions/send-messages com to:{type:'groups', ids:[...]}. Uma única
+ * mensagem: mídia com legenda (imageMessage/videoMessage) OU texto.
+ * @returns {Promise<{ok, actionId?, error?, raw?}>}
+ */
+async function agendarParaGrupos({
+  tipo, accountIds, releaseId, url, mensagem, scheduledTo, shippingSpeed, grupoIds,
+}) {
+  const b = await base();
+  const acoes = (await cfg.get('sendflow_send_path')) || '/actions';
+  const endpoint = `${b}${acoes}/send-messages`;
+  const ids = (Array.isArray(accountIds) ? accountIds : [accountIds]).filter(Boolean).map(String);
+  const gIds = (Array.isArray(grupoIds) ? grupoIds : []).filter(Boolean).map(String);
+
+  let msg;
+  if (tipo === 'text') {
+    msg = { type: 'extendedTextMessage', message: { text: mensagem || '' } };
+  } else {
+    const chave = tipo === 'video' ? 'video' : 'image';
+    msg = { type: `${chave}Message`, message: { [chave]: { url }, caption: mensagem || '' } };
+  }
+
+  const body = {
+    releaseId,
+    accountsFrom: 'accounts',
+    accounts: ids,
+    to: { type: 'groups', ids: gIds },
+    data: { messages: [msg] },
+    scheduledTo,
+    options: { shippingSpeed: shippingSpeed || 'slow' },
+  };
+
+  try {
+    const resp = await fetchSendflow(endpoint, {
+      method: 'POST',
+      headers: await headers(),
+      body: JSON.stringify(body),
+    });
+    const raw = await resp.text().catch(() => '');
+    let json = {};
+    try {
+      json = raw ? JSON.parse(raw) : {};
+    } catch {
+      json = { raw };
+    }
+    if (!resp.ok) return { ok: false, error: `${resp.status}: ${raw.slice(0, 200)}` };
+    const actionId =
+      json.id || json.actionId || json.data?.id || json.data?.actionId || json.action?.id || null;
+    return { ok: true, actionId, raw: json };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
  * Agenda um envio COM MENÇÃO A TODOS (marca todo o grupo).
  * A menção só existe no endpoint batch /actions/send-messages e exige a mídia
  * SEPARADA do texto: manda a mídia (sem legenda) e depois o texto marcando todos.
@@ -224,11 +312,13 @@ async function agendarComMencao({
   mensagem, // o texto que marca todos
   scheduledTo,
   shippingSpeed,
+  grupoIds, // opcional: segmenta a menção nesses grupos
 }) {
   const b = await base();
   const acoes = (await cfg.get('sendflow_send_path')) || '/actions';
   const endpoint = `${b}${acoes}/send-messages`;
   const ids = (Array.isArray(accountIds) ? accountIds : [accountIds]).filter(Boolean).map(String);
+  const gIds = (Array.isArray(grupoIds) ? grupoIds : []).filter(Boolean).map(String);
 
   const messages = [];
   // mídia primeiro, sem legenda (o texto vai separado pra poder mencionar)
@@ -247,7 +337,8 @@ async function agendarComMencao({
     releaseId,
     accountsFrom: 'accounts',
     accounts: ids,
-    to: { type: 'release', ids: [releaseId] },
+    // segmenta nos grupos indicados; sem grupos -> release inteira
+    to: gIds.length ? { type: 'groups', ids: gIds } : { type: 'release', ids: [releaseId] },
     data: { messages },
     scheduledTo,
     options: { shippingSpeed: shippingSpeed || 'slow' },
@@ -357,7 +448,9 @@ async function enviarNotificacaoWhatsapp({ whatsapp, mensagem }) {
 
 module.exports = {
   buscarAccountIds,
+  buscarGrupos,
   agendarAcao,
+  agendarParaGrupos,
   agendarComMencao,
   deletarAcoes,
   testarConexao,
