@@ -685,11 +685,11 @@ function SlotsSection({ demanda, arquivos, podeSubir, podeLegendar, onEnviado, o
               {!ehTexto && (
                 <div className="mb-2">
                   {arq ? (
-                    <div className="relative overflow-hidden rounded-xl border border-white/10">
+                    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-ink-950">
                       {arq.tipo === 'video' ? (
-                        <video src={arq.cloudinaryUrl} className="h-40 w-full object-cover" muted playsInline controls preload="metadata" />
+                        <video src={arq.cloudinaryUrl} className="mx-auto max-h-[30rem] w-full object-contain" muted playsInline controls preload="metadata" />
                       ) : (
-                        <img src={arq.cloudinaryUrl} alt="" className="h-40 w-full object-cover" loading="lazy" />
+                        <img src={arq.cloudinaryUrl} alt="" className="mx-auto max-h-[30rem] w-full object-contain" loading="lazy" />
                       )}
                       {podeSubir && (
                         <button onClick={() => onDeletar?.(arq.id)} className="absolute right-2 top-2 rounded-md bg-black/60 p-1.5 text-rose-300 backdrop-blur">
@@ -911,9 +911,9 @@ function ArquivoCard({ arquivo, isAdmin, autoGerida, podeDeletar, podeEditarMidi
     >
       <div className="relative aspect-[4/5] bg-ink-950">
         {isVideo ? (
-          <video src={arquivo.cloudinaryUrl} className="h-full w-full object-cover" muted playsInline controls preload="metadata" />
+          <video src={arquivo.cloudinaryUrl} className="h-full w-full object-contain" muted playsInline controls preload="metadata" />
         ) : (
-          <img src={arquivo.cloudinaryUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+          <img src={arquivo.cloudinaryUrl} alt="" className="h-full w-full object-contain" loading="lazy" />
         )}
         <div className="absolute left-2 top-2 flex items-center gap-1">
           <span className="rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur">
