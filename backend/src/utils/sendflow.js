@@ -54,18 +54,24 @@ async function fetchComTimeout(url, opts = {}, ms = 20000) {
   }
 }
 
-// Throttle global: garante um intervalo mínimo entre chamadas ao SendFlow
-// (evita estourar o rate limit por segundo no "Montar o dia"). Com uma pequena
-// variação aleatória pra não bater sempre no mesmo "tick" do limitador.
+// Throttle global SERIALIZADO: garante intervalo mínimo entre chamadas ao
+// SendFlow. O limite do SendFlow é ~1 req/s ("aguarde 1s"), então usamos folga
+// (1200ms) — abaixo de 1000ms já conta VIOLAÇÃO. É uma FILA (cada chamada espera
+// a anterior): sem isso, duas chamadas concorrentes liam a mesma `ultimaChamada`
+// e disparavam coladas, estourando o limite mesmo com o intervalo configurado.
 let ultimaChamada = 0;
-const INTERVALO_MIN_MS = 950;
-async function respeitarIntervalo() {
-  // Se estamos em cooldown de rate limit, espera até ele passar (o limitador
-  // conta VIOLAÇÕES: bater durante a punição só acumula mais violação).
-  const alvo = Math.max(ultimaChamada + INTERVALO_MIN_MS, limiteAte);
-  const espera = alvo - Date.now();
-  if (espera > 0) await new Promise((r) => setTimeout(r, espera + Math.floor(Math.random() * 120)));
-  ultimaChamada = Date.now();
+let filaThrottle = Promise.resolve();
+const INTERVALO_MIN_MS = 1200;
+function respeitarIntervalo() {
+  filaThrottle = filaThrottle.then(async () => {
+    // Em cooldown de rate limit, espera ele passar (bater durante a punição
+    // só acumula violação). limiteAte também segura a fila.
+    const alvo = Math.max(ultimaChamada + INTERVALO_MIN_MS, limiteAte);
+    const espera = alvo - Date.now();
+    if (espera > 0) await new Promise((r) => setTimeout(r, espera));
+    ultimaChamada = Date.now();
+  });
+  return filaThrottle;
 }
 
 // Cache local do bloqueio de API key: quando o SendFlow devolve api-key-blocked,
@@ -106,8 +112,10 @@ async function fetchSendflow(url, opts = {}, ms = 20000) {
       bloqueadoAte = Date.now() + Math.min(m ? Number(m[1]) : 3600000, 24 * 3600000);
     } else if (/rate-limit-exceeded/i.test(txt) || resp.status === 429) {
       const m = txt.match(/retryAfterMs"?\s*:\s*(\d+)/);
-      // teto de 5 min; piso de 60s (o SendFlow pede ~1 min entre requisições).
-      const espera = Math.min(Math.max(m ? Number(m[1]) : 60000, 60000), 5 * 60000);
+      // respeita o retryAfterMs real (limite por-segundo = 1000ms; bloqueio de
+      // minuto = 60000ms), com folga extra e teto de 5 min. Piso de 1,5s.
+      const base = m ? Number(m[1]) : 2000;
+      const espera = Math.min(Math.max(base + 500, 1500), 5 * 60000);
       limiteAte = Date.now() + espera;
     }
   }
@@ -427,7 +435,11 @@ async function enviarNotificacaoWhatsapp({ whatsapp, mensagem }) {
 
   const path = (await cfg.get('sendflow_notify_path')) || '/sendapi/actions/send-text-message';
   try {
-    const resp = await fetchComTimeout(
+    // IMPORTANTE: passa pelo fetchSendflow (fila + cooldown + cache de bloqueio).
+    // Antes usava fetchComTimeout DIRETO — as notificações (fire-and-forget, em
+    // paralelo ao atribuir demandas) disparavam chamadas ao SendFlow SEM
+    // espaçamento e contavam violação de rate limit.
+    const resp = await fetchSendflow(
       `${b}${path}/${encodeURIComponent(chip)}`,
       {
         method: 'POST',
