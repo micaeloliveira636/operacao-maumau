@@ -59,6 +59,11 @@ export default function DemandaDetalhe() {
       ? !['agendado', 'concluido', 'agendamento_pendente'].includes(demanda.status)
       : EDITAVEL.includes(demanda.status));
 
+  // LEGENDA dos feedbacks é tarefa do ADMIN, não da operadora. A Giselle só sobe
+  // as fotos; a legenda quem põe é o admin — inclusive DEPOIS que a demanda chega
+  // (enviado/aprovado), até antes de agendar. Por isso não usa a janela EDITAVEL.
+  const podeLegendar = demanda && isAdmin && !['agendado', 'concluido'].includes(demanda.status);
+
   async function mudarStatus(novoStatus, extra = {}) {
     setAcao(true);
     try {
@@ -379,7 +384,7 @@ export default function DemandaDetalhe() {
           demanda={demanda}
           arquivos={arquivos}
           podeSubir={podeEditar}
-          podeEditar={podeEditar}
+          podeLegendar={podeLegendar}
           onEnviado={(arq) => setArquivos((a) => [...a.filter((x) => x.ordem !== arq.ordem), arq])}
           onDeletar={deletarArquivo}
           onSalvarSlots={salvarSlots}
@@ -617,7 +622,7 @@ function PreviewAgendamentoModal({ plano, agendando, onClose, onConfirmar }) {
 }
 
 // Seção de espaços nomeados (feedbacks): 1 demanda com vários slots.
-function SlotsSection({ demanda, arquivos, podeSubir, podeEditar, onEnviado, onDeletar, onSalvarSlots }) {
+function SlotsSection({ demanda, arquivos, podeSubir, podeLegendar, onEnviado, onDeletar, onSalvarSlots }) {
   const toast = useToast();
   const slots = [...(demanda.slots || [])].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
   const arqPorOrdem = new Map(arquivos.map((a) => [a.ordem, a]));
@@ -705,9 +710,11 @@ function SlotsSection({ demanda, arquivos, podeSubir, podeEditar, onEnviado, onD
                 </div>
               )}
 
-              {podeEditar || ehTexto ? (
+              {/* Legenda = só o ADMIN edita (podeLegendar). A operadora só sobe
+                  as fotos; pra ela a legenda aparece só como leitura, se houver. */}
+              {podeLegendar ? (
                 <div>
-                  {podeEditar && opcoesFrases.length > 0 && (
+                  {opcoesFrases.length > 0 && (
                     <div className="mb-1.5">
                       <Select
                         value=""
@@ -720,18 +727,19 @@ function SlotsSection({ demanda, arquivos, podeSubir, podeEditar, onEnviado, onD
                   <textarea
                     className="input min-h-[64px] resize-y"
                     value={legendas[slot.ordem] || ''}
-                    disabled={!podeEditar}
                     onChange={(e) => setLegendas((l) => ({ ...l, [slot.ordem]: e.target.value }))}
-                    placeholder={ehTexto ? 'Texto da mensagem' : 'Legenda (opcional)'}
+                    placeholder={ehTexto ? 'Texto da mensagem' : 'Legenda (você adiciona aqui)'}
                   />
-                  {podeEditar && mudou && (
+                  {mudou && (
                     <button onClick={() => salvarLegenda(slot.ordem)} className="btn-ghost mt-1.5 px-2.5 py-1 text-xs">
                       <Icon name="check" className="h-3.5 w-3.5" /> Salvar legenda
                     </button>
                   )}
                 </div>
               ) : (
-                slot.legenda && <p className="whitespace-pre-wrap text-xs text-slate-400">{slot.legenda}</p>
+                slot.legenda
+                  ? <p className="whitespace-pre-wrap text-xs text-slate-400">{slot.legenda}</p>
+                  : <p className="text-xs text-slate-500">A legenda é adicionada pelo admin.</p>
               )}
             </div>
           );
