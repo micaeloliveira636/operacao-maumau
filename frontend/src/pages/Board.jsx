@@ -1,12 +1,56 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useFetch } from '../lib/useFetch';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { BOARD_COLUNAS, CATEGORIAS } from '../lib/constants';
-import { LoadingScreen, EmptyState, Select, ConfirmDialog } from '../components/ui';
+import { LoadingScreen, EmptyState, Select, ConfirmDialog, StatusBadge, CategoriaTag } from '../components/ui';
 import { DemandaCard } from '../components/DemandaCard';
+import { formatarData } from '../lib/format';
 import { Icon } from '../components/Icon';
+
+// Linha compacta da visão em lista (estilo ClickUp).
+function DemandaRow({ demanda, podeExcluir, onExcluir, excluindo }) {
+  const horarios = demanda.horarios || [];
+  const campanhas = demanda.campanhasDestino || [];
+  return (
+    <Link
+      to={`/demandas/${demanda.id}`}
+      className="group flex items-center gap-3 border-b border-white/[0.05] px-3 py-2.5 transition hover:bg-white/[0.025]"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-slate-100">{demanda.titulo}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500">
+          <CategoriaTag categoria={demanda.categoria} />
+          <span className="inline-flex items-center gap-1">
+            <Icon name="calendar" className="h-3.5 w-3.5" /> {formatarData(demanda.dataAlvo)}
+          </span>
+          {horarios.length > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <Icon name="clock" className="h-3.5 w-3.5" /> {horarios.length}
+            </span>
+          )}
+          {campanhas.map((c) => (
+            <span key={c} className="rounded bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium text-brand-200">{c}</span>
+          ))}
+        </div>
+      </div>
+      <StatusBadge status={demanda.status} />
+      {podeExcluir && (
+        <button
+          type="button"
+          disabled={excluindo}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onExcluir?.(demanda); }}
+          title="Excluir demanda"
+          className="rounded-lg border border-white/10 bg-ink-900/80 p-1.5 text-slate-400 transition hover:border-rose-500/40 hover:bg-rose-500/15 hover:text-rose-300 disabled:opacity-50"
+        >
+          <Icon name="trash" className="h-4 w-4" />
+        </button>
+      )}
+    </Link>
+  );
+}
 
 export default function Board() {
   const { data, carregando, setData } = useFetch('/demandas', []);
@@ -121,11 +165,26 @@ export default function Board() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {demandas.map((d, i) => (
-            <DemandaCard key={d.id} demanda={d} index={i}
-              podeExcluir={isAdmin} onExcluir={setConfirmar} excluindo={excluindo === d.id} />
-          ))}
+        /* Lista agrupada por status (estilo ClickUp) */
+        <div className="space-y-5">
+          {BOARD_COLUNAS.map((col) => {
+            const itens = demandas.filter((d) => col.status.includes(d.status));
+            if (itens.length === 0) return null;
+            return (
+              <div key={col.key}>
+                <div className="mb-1 flex items-center gap-2 px-1">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-300">{col.titulo}</h3>
+                  <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[11px] text-slate-400">{itens.length}</span>
+                </div>
+                <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.015]">
+                  {itens.map((d) => (
+                    <DemandaRow key={d.id} demanda={d}
+                      podeExcluir={isAdmin} onExcluir={setConfirmar} excluindo={excluindo === d.id} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

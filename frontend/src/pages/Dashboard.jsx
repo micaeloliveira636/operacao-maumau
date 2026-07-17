@@ -24,8 +24,11 @@ export default function Dashboard() {
   const recentes = [...demandas]
     .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
     .slice(0, 6);
+  // "Próximas por prazo" = só HOJE e dias FUTUROS (nunca dias que já passaram).
+  const hojeISO = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
   const proximas = demandas
     .filter((d) => !['concluido'].includes(d.status))
+    .filter((d) => String(d.dataAlvo).slice(0, 10) >= hojeISO)
     .sort((a, b) => new Date(a.dataAlvo) - new Date(b.dataAlvo))
     .slice(0, 5);
 
