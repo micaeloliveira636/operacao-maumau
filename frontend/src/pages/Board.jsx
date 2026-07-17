@@ -96,8 +96,12 @@ export default function Board() {
   }, [data, categoria, busca]);
 
   // Ativas = ainda precisam de atenção; Concluídas = já agendadas c/ mídia + concluídas.
+  // Ativas mostram SÓ hoje e dias futuros — nunca dias que já passaram.
+  const hojeISO = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
   const concluidas = demandas.filter((d) => STATUS_CONCLUIDAS.includes(d.status));
-  const ativas = demandas.filter((d) => !STATUS_CONCLUIDAS.includes(d.status));
+  const ativas = demandas.filter(
+    (d) => !STATUS_CONCLUIDAS.includes(d.status) && String(d.dataAlvo).slice(0, 10) >= hojeISO
+  );
   const emConcluidas = modo === 'concluidas';
   const visiveis = emConcluidas ? concluidas : ativas;
 
