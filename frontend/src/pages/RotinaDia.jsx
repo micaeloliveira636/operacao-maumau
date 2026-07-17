@@ -62,6 +62,8 @@ export default function RotinaDia() {
     return (gs || []).map((g) => ({
       categoria: g.categoria,
       titulo: g.titulo,
+      // Lara tem tipo China/Legalizada (só rótulo p/ Giselle saber qual fazer).
+      laraTipo: g.categoria === 'feedback-lara' ? 'China' : undefined,
       // Campanha padrão vem do roteiro (lara 19h=aquec; 13h/15h=aquec ou +ativos
       // no sistema novo; entrada=ativos). Editável no toggle depois.
       campanhas: g.campanhas || (g.categoria === 'feedback-lara' ? ['AQUECIMENTO'] : ['ATIVOS 1', 'ATIVOS 2']),
@@ -116,6 +118,7 @@ export default function RotinaDia() {
 
   // feedbacks (grupos com espaços)
   const delGrupo = (i) => setFeedbacks((f) => f.filter((_, idx) => idx !== i));
+  const setLaraTipo = (i, tipo) => setFeedbacks((f) => f.map((g, idx) => (idx === i ? { ...g, laraTipo: tipo } : g)));
   const toggleCampFeedback = (i, nome) =>
     setFeedbacks((f) => f.map((g, idx) => {
       if (idx !== i) return g;
@@ -169,8 +172,10 @@ export default function RotinaDia() {
     for (const g of feedbacks) {
       if (!feedbackResp || !g.slots?.length) continue;
       const camps = g.campanhas?.length ? g.campanhas : ['ATIVOS 1', 'ATIVOS 2'];
+      // Lara: acrescenta o rótulo China/Legalizada no título (pra Giselle saber).
+      const titulo = g.categoria === 'feedback-lara' && g.laraTipo ? `${g.titulo} · ${g.laraTipo}` : g.titulo;
       out.push({
-        titulo: g.titulo, categoria: g.categoria, dataAlvo,
+        titulo, categoria: g.categoria, dataAlvo,
         horarios: g.slots.map((s) => s.horario),
         slots: g.slots.map((s) => ({ ordem: s.ordem, nome: s.nome, horario: s.horario, legenda: s.legenda || '', tipo: s.tipo })),
         campanhasDestino: camps, releaseIds: releasesDe(camps),
@@ -460,6 +465,22 @@ export default function RotinaDia() {
                         </div>
                         <button type="button" onClick={() => delGrupo(i)} className="link-quiet flex-none p-1"><Icon name="trash" className="h-4 w-4" /></button>
                       </div>
+                      {g.categoria === 'feedback-lara' && (
+                        <div className="mt-2">
+                          <p className="mb-1 text-[11px] text-slate-500">Tipo (aparece no título p/ Giselle)</p>
+                          <div className="flex gap-1.5">
+                            {['China', 'Legalizada'].map((tipo) => {
+                              const on = (g.laraTipo || 'China') === tipo;
+                              return (
+                                <button key={tipo} type="button" onClick={() => setLaraTipo(i, tipo)}
+                                  className={`rounded-lg border px-2.5 py-1 text-xs transition ${on ? 'border-brand-400/50 bg-brand-500/15 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'}`}>
+                                  {tipo}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {['AQUECIMENTO', 'ATIVOS 1', 'ATIVOS 2'].map((nome) => {
                           const on = (g.campanhas || []).includes(nome);
