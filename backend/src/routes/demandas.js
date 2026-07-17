@@ -438,12 +438,19 @@ router.get('/:id/agendar/preview', requireAuth, requireAdmin, async (req, res) =
     const { demanda, arquivos: files, erro, msg } = await carregarParaAgendar(req.params.id);
     if (erro) return res.status(erro).json({ error: msg });
     const plano = agendador.montarPlano(demanda, files);
+    // Remove do plano os envios cujo horário já passou (não serão agendados).
+    const futuros = plano.itens.filter((i) => !agendador.jaPassou(i.scheduledTo));
+    const passados = plano.itens.length - futuros.length;
+    if (passados) {
+      plano.avisos = [...plano.avisos, `${passados} envio(s) com horário já passado — não serão agendados.`];
+      plano.itens = futuros;
+    }
     const autoGerida = agendador.ehAutoGerida(demanda);
     const temSlots = Array.isArray(demanda.slots) && demanda.slots.length > 0;
     const statusOk = demanda.status === 'aprovado' || ((autoGerida || temSlots) && demanda.status === 'em_andamento');
     return res.json({
       status: demanda.status,
-      podeAgendar: statusOk && plano.itens.length > 0,
+      podeAgendar: statusOk && futuros.length > 0,
       ...plano,
     });
   } catch (err) {

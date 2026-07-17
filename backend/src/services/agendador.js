@@ -74,6 +74,14 @@ function montarScheduledTo(dataAlvo, horario) {
   return `${dataAlvo}T${horario}:00-03:00`;
 }
 
+// Horário JÁ PASSOU? Nunca agendar pro passado — o SendFlow, ao receber uma
+// data passada, acaba disparando na hora errada (ex.: mídia posta num pedido de
+// 15h de ONTEM saiu hoje no horário errado). Bloqueio no motor.
+function jaPassou(scheduledTo) {
+  const t = new Date(scheduledTo).getTime();
+  return Number.isFinite(t) && t <= Date.now();
+}
+
 /**
  * Aplica as regras e devolve o PLANO de envios (sem chamar o SendFlow).
  * Cada item = uma mensagem (uma chamada separada).
@@ -406,6 +414,13 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
   const resultados = { agendadas: 0, puladas: 0, erros: [] };
 
   for (const item of itens) {
+    // NUNCA agenda pra um horário que já passou (senão o SendFlow envia na hora
+    // errada). Ex.: mídia posta num pedido de 15h de ONTEM.
+    if (jaPassou(item.scheduledTo)) {
+      avisos.push(`${item.campanha} ${item.horario}: horário já passou — não agendado.`);
+      continue;
+    }
+
     // idempotência por mensagem (texto provisório não checa — pode recriar).
     // arquivoId pode ser null (texto/slot de texto) — usar isNull nesse caso,
     // senão `col = NULL` nunca casa e duplicaria em retentativas.
@@ -700,5 +715,5 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
 
 module.exports = {
   montarPlano, montarPlanoTexto, executarAgendamento, executarAgendamentoTexto,
-  apagarProvisorios, apagarAcoesDaDemanda, reconferirChips, montarLegenda, montarScheduledTo, ehAutoGerida,
+  apagarProvisorios, apagarAcoesDaDemanda, reconferirChips, montarLegenda, montarScheduledTo, ehAutoGerida, jaPassou,
 };
