@@ -180,8 +180,11 @@ async function buscarGrupos(releaseId, { fresh = false } = {}) {
   }
   const arr = await rr.json().catch(() => []);
   const grupos = (Array.isArray(arr) ? arr : arr.items || [])
-    .filter((g) => g && g.id)
-    .map((g) => ({ id: String(g.id), name: String(g.name || '') }));
+    .filter((g) => g && (g.gid || g.jid || g.id))
+    // gid = ID do grupo no WhatsApp (ex.: 120363...@g.us) — é ESTE que o envio
+    // por grupos (to:{type:'groups'}) exige. O `id` (doc) NÃO funciona: o envio
+    // fica sem grupo nenhum. Guardamos os dois; enviar usa sempre o gid.
+    .map((g) => ({ id: String(g.id), gid: String(g.gid || g.jid || g.id), name: String(g.name || '') }));
   if (grupos.length) gruposCache.set(String(releaseId), { grupos, ts: Date.now() });
   return grupos;
 }

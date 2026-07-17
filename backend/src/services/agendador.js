@@ -18,10 +18,12 @@ function norm(s) {
 function ehGrupoLink2(nome) {
   return /⚜️|⚜|TRAMPO\s*VIP|OPERA[ÇC][ÃA]O/i.test(String(nome || ''));
 }
-// Divide a lista de grupos { id, name } nos dois conjuntos.
+// Divide a lista de grupos { id, gid, name } nos dois conjuntos.
+// IMPORTANTE: usa o `gid` (ID do grupo no WhatsApp) — é o que o envio por
+// grupos exige. Usar o `id` do doc faz o envio ficar sem grupo nenhum.
 function dividirGruposPorLink(grupos) {
   const link2 = [], link1 = [];
-  for (const g of grupos || []) (ehGrupoLink2(g.name) ? link2 : link1).push(String(g.id));
+  for (const g of grupos || []) (ehGrupoLink2(g.name) ? link2 : link1).push(String(g.gid || g.id));
   return { link1, link2 };
 }
 
@@ -612,9 +614,15 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
     );
 
   const cacheChips = new Map();
-  const res = { verificados: rows.length, reagendados: 0, semMudanca: 0, erros: [] };
+  const res = { verificados: rows.length, reagendados: 0, semMudanca: 0, textoPulado: 0, erros: [] };
 
   for (const s of rows) {
+    // NUNCA reconfere envio de TEXTO (provisório). O admin às vezes completa a
+    // mensagem com a MÍDIA direto no SendFlow; se a gente recriasse aqui, ela
+    // voltaria a ser só texto e a mídia adicionada manualmente sumiria (era o
+    // bug que quebrava dias). Recheck só troca chip de envios de mídia.
+    if (s.tipoEnvio === 'text') { res.textoPulado += 1; continue; }
+
     let atuais;
     try {
       atuais = cacheChips.get(s.releaseId);
