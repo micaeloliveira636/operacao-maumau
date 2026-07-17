@@ -30,6 +30,9 @@ const demandas = pgTable('demandas', {
   prioridade: varchar('prioridade', { length: 10 }).default('normal'), // urgente | alta | normal
   linkPrincipal: text('link_principal'), // link padrão (ATIVOS 1 e 2)
   linkDois: text('link_dois'), // 2º link (só ATIVOS 1: duas mensagens)
+  // Grupos específicos do AQUECIMENTO (gids) p/ pedidos e feedbacks de lara.
+  // Vazio/null = campanha AQUECIMENTO inteira. Só afeta o envio ao AQUECIMENTO.
+  gruposAquecimento: text('grupos_aquecimento').array(),
   // Espaços nomeados (feedbacks): [{ordem, nome, horario, legenda, tipo:'texto'|'midia'}]
   slots: jsonb('slots'),
   motivoRejeicao: text('motivo_rejeicao'),

@@ -27,6 +27,15 @@ function dividirGruposPorLink(grupos) {
   return { link1, link2 };
 }
 
+// Grupos específicos do AQUECIMENTO (gids) escolhidos na demanda — só valem pro
+// envio à campanha AQUECIMENTO (pedidos / feedbacks de lara). Vazio = campanha
+// inteira. Devolve o array de gids ou undefined (não segmenta).
+function gruposAquecDoItem(demanda, campNome) {
+  const g = demanda.gruposAquecimento;
+  if (norm(campNome) === AQUECIMENTO && Array.isArray(g) && g.length) return g.filter(Boolean).map(String);
+  return undefined;
+}
+
 // Detecta o bloqueio de API key do SendFlow (403 api-key-blocked) e estima em
 // quantas horas libera. Quando bloqueado, NÃO adianta seguir chamando —
 // paramos na hora pra não prolongar a punição.
@@ -135,6 +144,7 @@ function montarPlanoSlots(demanda, arquivos) {
         arquivoId, ordem: slot.ordem, horario: slot.horario, campanha: camp.nome,
         releaseId: camp.releaseId, variante: `slot${slot.ordem}`, tipo, url, legenda,
         shippingSpeed, mentionAll, scheduledTo,
+        gruposAquec: gruposAquecDoItem(demanda, camp.nome),
       });
     }
   }
@@ -214,6 +224,7 @@ function montarPlano(demanda, arquivos) {
         releaseId: camp.releaseId,
         variante: 'principal',
         grupoFiltro: vaiDividir ? 'link1' : null,
+        gruposAquec: gruposAquecDoItem(demanda, camp.nome),
         tipo,
         url,
         legenda: montarLegenda(legendaBase, linkPrincipal),
@@ -289,6 +300,7 @@ function montarPlanoTexto(demanda) {
       itens.push({
         arquivoId: null, horario, campanha: camp.nome, releaseId: camp.releaseId,
         variante: 'texto', grupoFiltro: vaiDividir ? 'link1' : null,
+        gruposAquec: gruposAquecDoItem(demanda, camp.nome),
         tipo: 'text', url: null, legenda: legendaBase,
         shippingSpeed, mentionAll, scheduledTo,
       });
@@ -504,6 +516,9 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
         avisos.push(`${item.campanha} ${item.horario}: nenhum grupo para ${item.grupoFiltro} — pulado.`);
         continue;
       }
+    } else if (Array.isArray(item.gruposAquec) && item.gruposAquec.length) {
+      // Grupos específicos do AQUECIMENTO escolhidos na demanda (gids diretos).
+      grupoIds = item.gruposAquec;
     }
 
     // UMA ação por campanha, com TODOS os chips (o SendFlow distribui).
@@ -567,8 +582,8 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
       velocidade: item.shippingSpeed,
       scheduledTo: new Date(item.scheduledTo),
       status: 'agendado',
-      // grupoFiltro guardado p/ o reconferirChips re-segmentar ao recriar.
-      resultJson: { actionIds, grupoFiltro: item.grupoFiltro || null },
+      // grupoFiltro/gruposAquec guardados p/ o reconferirChips re-segmentar ao recriar.
+      resultJson: { actionIds, grupoFiltro: item.grupoFiltro || null, gruposAquec: item.gruposAquec || null },
     });
     resultados.agendadas += 1;
   }
@@ -660,6 +675,7 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
     // schedule tinha grupoFiltro, recalcula os grupos atuais e re-segmenta.
     let grupoIds;
     const grupoFiltro = s.resultJson?.grupoFiltro || null;
+    const gruposAquec = Array.isArray(s.resultJson?.gruposAquec) ? s.resultJson.gruposAquec : null;
     if (grupoFiltro) {
       try {
         const div = dividirGruposPorLink(await sendflow.buscarGrupos(s.releaseId, { fresh: true }));
@@ -674,6 +690,8 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
         res.erros.push(`${s.releaseId}: sem grupos para ${grupoFiltro} ao reconferir — pulado.`);
         continue;
       }
+    } else if (gruposAquec && gruposAquec.length) {
+      grupoIds = gruposAquec; // grupos fixos do AQUECIMENTO escolhidos na demanda
     }
 
     const scheduledTo = new Date(s.scheduledTo).toISOString();
@@ -712,7 +730,7 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
       .set({
         accountIds: atuais,
         sendflowActionId: envio.actionId || null,
-        resultJson: { actionIds: novos, reagendado: true, em: agora.toISOString(), grupoFiltro },
+        resultJson: { actionIds: novos, reagendado: true, em: agora.toISOString(), grupoFiltro, gruposAquec },
       })
       .where(eq(sendflowSchedules.id, s.id));
     res.reagendados += 1;

@@ -25,6 +25,37 @@ const semLabel = (m) => (m?.label || '').replace(/^\S+\s—\s/, '');
 const emptyAquec = () =>
   Object.fromEntries(PASTAS_AQUECIMENTO.map((p) => [p.id, { on: false, modeloId: '', hora: p.hora }]));
 
+const AQUEC_RELEASE = CAMPANHAS.find((c) => c.nome === 'AQUECIMENTO')?.releaseId;
+
+// Seletor de grupos do AQUECIMENTO (pedidos / feedbacks de lara). Vazio = campanha inteira.
+function GruposAquecPicker({ grupos, carregando, selected, onToggle, onTodos, onLimpar }) {
+  if (carregando) return <p className="text-[11px] text-slate-500"><Spinner className="mr-1 inline h-3 w-3" /> buscando grupos…</p>;
+  if (!grupos?.length) return <p className="text-[11px] text-slate-500">Nenhum grupo no AQUECIMENTO agora.</p>;
+  const sel = selected || [];
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-2 text-[11px] text-slate-500">
+        <span>{sel.length ? `${sel.length} grupo(s) selecionado(s)` : 'Todos os grupos'}</span>
+        <button type="button" onClick={onTodos} className="link-quiet">todos</button>
+        <button type="button" onClick={onLimpar} className="link-quiet">limpar</button>
+      </div>
+      <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-white/10 bg-white/[0.02] p-2">
+        {grupos.map((g) => {
+          const on = sel.includes(g.gid);
+          return (
+            <button key={g.gid} type="button" onClick={() => onToggle(g.gid)}
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs transition ${on ? 'bg-brand-500/15 text-white' : 'text-slate-400 hover:bg-white/5'}`}>
+              <span className={`h-3.5 w-3.5 flex-none rounded border ${on ? 'border-brand-400 bg-brand-500' : 'border-white/20'}`} />
+              <span className="truncate">{g.name || g.gid}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1 text-[11px] text-slate-500">Vazio = manda pra campanha AQUECIMENTO inteira.</p>
+    </div>
+  );
+}
+
 export default function RotinaDia() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -47,6 +78,19 @@ export default function RotinaDia() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [feedbackResp, setFeedbackResp] = useState('');
 
+  // Grupos do AQUECIMENTO (p/ escolher em pedidos e feedbacks de lara).
+  const [gruposAquec, setGruposAquec] = useState(null);
+  const [carregandoGrupos, setCarregandoGrupos] = useState(true);
+  useEffect(() => {
+    let vivo = true;
+    api.get(`/copys/grupos?releaseId=${encodeURIComponent(AQUEC_RELEASE)}`)
+      .then((d) => { if (vivo) setGruposAquec(d.grupos || []); })
+      .catch(() => { if (vivo) setGruposAquec([]); })
+      .finally(() => { if (vivo) setCarregandoGrupos(false); });
+    return () => { vivo = false; };
+  }, []);
+  const todosGids = () => (gruposAquec || []).map((g) => g.gid);
+
   const setPasta = (id, patch) => setAquec((a) => ({ ...a, [id]: { ...a[id], ...patch } }));
   const ehSabado = diaDaSemana(dataAlvo) === 6;
   const ehQuinta = diaDaSemana(dataAlvo) === 4;
@@ -64,6 +108,8 @@ export default function RotinaDia() {
       titulo: g.titulo,
       // Lara tem tipo China/Legalizada (só rótulo p/ Giselle saber qual fazer).
       laraTipo: g.categoria === 'feedback-lara' ? 'China' : undefined,
+      // Grupos do AQUECIMENTO escolhidos (só lara usa; vazio = campanha inteira).
+      gruposAquec: g.categoria === 'feedback-lara' ? [] : undefined,
       // Campanha padrão vem do roteiro (lara 19h=aquec; 13h/15h=aquec ou +ativos
       // no sistema novo; entrada=ativos). Editável no toggle depois.
       campanhas: g.campanhas || (g.categoria === 'feedback-lara' ? ['AQUECIMENTO'] : ['ATIVOS 1', 'ATIVOS 2']),
@@ -102,6 +148,12 @@ export default function RotinaDia() {
       const has = x.campanhas.includes(nome);
       return { ...x, campanhas: has ? x.campanhas.filter((c) => c !== nome) : [...x.campanhas, nome] };
     }));
+  const toggleGrupoPedido = (i, gid) =>
+    setPedidos((p) => p.map((x, idx) => {
+      if (idx !== i) return x;
+      const sel = x.gruposAquec || [];
+      return { ...x, gruposAquec: sel.includes(gid) ? sel.filter((g) => g !== gid) : [...sel, gid] };
+    }));
 
   // entradas
   const setEntrada = (i, patch) => setEntradas((e) => e.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
@@ -119,6 +171,13 @@ export default function RotinaDia() {
   // feedbacks (grupos com espaços)
   const delGrupo = (i) => setFeedbacks((f) => f.filter((_, idx) => idx !== i));
   const setLaraTipo = (i, tipo) => setFeedbacks((f) => f.map((g, idx) => (idx === i ? { ...g, laraTipo: tipo } : g)));
+  const setFeedbackField = (i, patch) => setFeedbacks((f) => f.map((g, idx) => (idx === i ? { ...g, ...patch } : g)));
+  const toggleGrupoFeedback = (i, gid) =>
+    setFeedbacks((f) => f.map((g, idx) => {
+      if (idx !== i) return g;
+      const sel = g.gruposAquec || [];
+      return { ...g, gruposAquec: sel.includes(gid) ? sel.filter((x) => x !== gid) : [...sel, gid] };
+    }));
   const toggleCampFeedback = (i, nome) =>
     setFeedbacks((f) => f.map((g, idx) => {
       if (idx !== i) return g;
@@ -156,6 +215,7 @@ export default function RotinaDia() {
         titulo: `Pedido ${pd.hora}`, categoria: 'pedido', dataAlvo, horarios: [pd.hora],
         legenda: m?.texto || '', campanhasDestino: pd.campanhas, releaseIds: releasesDe(pd.campanhas),
         atribuidoA: user?.id, velocidade: 'slow',
+        gruposAquecimento: pd.gruposAquec || [],
       });
     }
     for (const e of entradas) {
@@ -180,6 +240,7 @@ export default function RotinaDia() {
         slots: g.slots.map((s) => ({ ordem: s.ordem, nome: s.nome, horario: s.horario, legenda: s.legenda || '', tipo: s.tipo })),
         campanhasDestino: camps, releaseIds: releasesDe(camps),
         atribuidoA: feedbackResp, velocidade: 'slow',
+        gruposAquecimento: g.gruposAquec || [],
       });
     }
     return out;
@@ -356,6 +417,15 @@ export default function RotinaDia() {
                       })}
                     </div>
                   </div>
+                  {pd.campanhas.includes('AQUECIMENTO') && (
+                    <div>
+                      <label className="label">Grupos do AQUECIMENTO</label>
+                      <GruposAquecPicker grupos={gruposAquec} carregando={carregandoGrupos} selected={pd.gruposAquec}
+                        onToggle={(gid) => toggleGrupoPedido(i, gid)}
+                        onTodos={() => setPedido(i, { gruposAquec: todosGids() })}
+                        onLimpar={() => setPedido(i, { gruposAquec: [] })} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -492,6 +562,15 @@ export default function RotinaDia() {
                           );
                         })}
                       </div>
+                      {g.categoria === 'feedback-lara' && (g.campanhas || []).includes('AQUECIMENTO') && (
+                        <div className="mt-2">
+                          <p className="mb-1 text-[11px] text-slate-500">Grupos do AQUECIMENTO</p>
+                          <GruposAquecPicker grupos={gruposAquec} carregando={carregandoGrupos} selected={g.gruposAquec}
+                            onToggle={(gid) => toggleGrupoFeedback(i, gid)}
+                            onTodos={() => setFeedbackField(i, { gruposAquec: todosGids() })}
+                            onLimpar={() => setFeedbackField(i, { gruposAquec: [] })} />
+                        </div>
+                      )}
                     </div>
                   );
                 })}

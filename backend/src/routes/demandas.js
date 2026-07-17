@@ -168,6 +168,7 @@ router.post('/rotina', requireAuth, requireAdmin, async (req, res) => {
         velocidade: d.velocidade || 'slow',
         linkPrincipal: d.linkPrincipal || null,
         linkDois: d.linkDois || null,
+        gruposAquecimento: Array.isArray(d.gruposAquecimento) && d.gruposAquecimento.length ? d.gruposAquecimento : null,
         slots: Array.isArray(d.slots) ? d.slots : null,
       }).returning();
       criadas.push(nova);
@@ -269,7 +270,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
           'titulo', 'categoria', 'descricao', 'dataAlvo', 'horarios',
           'campanhasDestino', 'releaseIds', 'atribuidoA',
           'legenda', 'mencionar', 'velocidade', 'prioridade',
-          'linkPrincipal', 'linkDois', 'slots',
+          'linkPrincipal', 'linkDois', 'gruposAquecimento', 'slots',
         ]
       : ['slots']; // operador só mexe nas legendas dos espaços de feedback
 
