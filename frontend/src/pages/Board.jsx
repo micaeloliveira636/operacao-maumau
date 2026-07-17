@@ -4,11 +4,17 @@ import { useFetch } from '../lib/useFetch';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { BOARD_COLUNAS, CATEGORIAS } from '../lib/constants';
+import { BOARD_COLUNAS, CATEGORIAS, STATUS_CONCLUIDAS } from '../lib/constants';
 import { LoadingScreen, EmptyState, Select, ConfirmDialog, StatusBadge, CategoriaTag } from '../components/ui';
 import { DemandaCard } from '../components/DemandaCard';
 import { formatarData } from '../lib/format';
 import { Icon } from '../components/Icon';
+
+// Sub-grupos da aba "Concluídas": já agendado com mídia vs concluído.
+const GRUPOS_CONCLUIDAS = [
+  { key: 'agendado', titulo: 'Agendado (com mídia)', status: ['agendado'] },
+  { key: 'concluido', titulo: 'Concluído', status: ['concluido'] },
+];
 
 // Linha compacta da visão em lista (estilo ClickUp).
 function DemandaRow({ demanda, podeExcluir, onExcluir, excluindo }) {
@@ -89,6 +95,12 @@ export default function Board() {
     return arr;
   }, [data, categoria, busca]);
 
+  // Ativas = ainda precisam de atenção; Concluídas = já agendadas c/ mídia + concluídas.
+  const concluidas = demandas.filter((d) => STATUS_CONCLUIDAS.includes(d.status));
+  const ativas = demandas.filter((d) => !STATUS_CONCLUIDAS.includes(d.status));
+  const emConcluidas = modo === 'concluidas';
+  const visiveis = emConcluidas ? concluidas : ativas;
+
   if (carregando) return <LoadingScreen label="Carregando board" />;
 
   return (
@@ -96,18 +108,22 @@ export default function Board() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Board</h1>
-          <p className="page-sub">{demandas.length} demanda(s)</p>
+          <p className="page-sub">{visiveis.length} demanda(s){emConcluidas ? ' concluída(s)' : ' ativa(s)'}</p>
         </div>
         <div className="inline-flex rounded-xl border border-white/10 bg-white/[0.02] p-1">
-          {['board', 'lista'].map((m) => (
+          {[
+            { m: 'board', label: 'Board' },
+            { m: 'lista', label: 'Lista' },
+            { m: 'concluidas', label: `Concluídas${concluidas.length ? ` (${concluidas.length})` : ''}` },
+          ].map(({ m, label }) => (
             <button
               key={m}
               onClick={() => setModo(m)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 modo === m ? 'bg-brand-500/20 text-white' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              {m === 'board' ? 'Board' : 'Lista'}
+              {label}
             </button>
           ))}
         </div>
@@ -133,13 +149,14 @@ export default function Board() {
         />
       </div>
 
-      {demandas.length === 0 ? (
-        <EmptyState icon="board" titulo="Nenhuma demanda" descricao="Ajuste os filtros ou crie uma nova demanda." />
+      {visiveis.length === 0 ? (
+        <EmptyState icon="board" titulo={emConcluidas ? 'Nada concluído ainda' : 'Nenhuma demanda ativa'}
+          descricao={emConcluidas ? 'O que você agendar com mídia / concluir aparece aqui.' : 'Ajuste os filtros ou crie uma nova demanda.'} />
       ) : modo === 'board' ? (
         <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
           <div className="flex min-w-max gap-4 sm:grid sm:min-w-0 sm:grid-cols-2 lg:grid-cols-5">
             {BOARD_COLUNAS.map((col) => {
-              const itens = demandas.filter((d) => col.status.includes(d.status));
+              const itens = ativas.filter((d) => col.status.includes(d.status));
               return (
                 <div key={col.key} className="w-72 flex-none sm:w-auto">
                   <div className="mb-3 flex items-center justify-between px-1">
@@ -165,10 +182,10 @@ export default function Board() {
           </div>
         </div>
       ) : (
-        /* Lista agrupada por status (estilo ClickUp) */
+        /* Lista agrupada por status (estilo ClickUp) — ativas OU concluídas */
         <div className="space-y-5">
-          {BOARD_COLUNAS.map((col) => {
-            const itens = demandas.filter((d) => col.status.includes(d.status));
+          {(emConcluidas ? GRUPOS_CONCLUIDAS : BOARD_COLUNAS).map((col) => {
+            const itens = visiveis.filter((d) => col.status.includes(d.status));
             if (itens.length === 0) return null;
             return (
               <div key={col.key}>

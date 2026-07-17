@@ -41,14 +41,21 @@ export const STATUS = {
   rejeitado: { label: 'Rejeitado', tone: 'rose' },
 };
 
-// Colunas do board (kanban)
+// Colunas do board (kanban) — SÓ o que ainda precisa de atenção. O que já foi
+// agendado no SendFlow com mídia ('agendado') e o concluído saem daqui e vão pra
+// aba "Concluídas" (senão o board vira 300 cards e confunde). O último estágio
+// visível é 'texto_agendado' = tem só o texto agendado, ainda esperando a mídia.
 export const BOARD_COLUNAS = [
   { key: 'pendente', titulo: 'Pendente', status: ['pendente'] },
   { key: 'em_andamento', titulo: 'Em produção', status: ['em_andamento', 'rejeitado'] },
   { key: 'enviado', titulo: 'Aprovação', status: ['enviado'] },
   { key: 'aprovado', titulo: 'Aprovado', status: ['aprovado', 'agendamento_pendente', 'erro_agendamento'] },
-  { key: 'agendado', titulo: 'Agendado', status: ['texto_agendado', 'agendado', 'concluido'] },
+  { key: 'texto_agendado', titulo: 'Texto agendado', status: ['texto_agendado'] },
 ];
+
+// Já resolvidos (agendado com mídia no SendFlow + concluído) — ficam na aba
+// "Concluídas", fora do board principal.
+export const STATUS_CONCLUIDAS = ['agendado', 'concluido'];
 
 // Cores alinhadas ao design v3
 export const TONE_CLASSES = {
