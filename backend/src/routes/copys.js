@@ -170,7 +170,9 @@ router.get('/grupos', requireAuth, requireAdmin, async (req, res) => {
   try {
     const releaseId = req.query.releaseId;
     if (!releaseId) return res.status(400).json({ error: 'releaseId obrigatório' });
-    const grupos = await sendflow.buscarGrupos(releaseId, { fresh: true });
+    // Cache de 60s (SEM fresh): escolher grupo não precisa de dado fresco, e
+    // forçar fresh a cada troca de campanha estourava o rate limit / bloqueio.
+    const grupos = await sendflow.buscarGrupos(releaseId);
     return res.json({ grupos });
   } catch (err) {
     return res.status(502).json({ error: err.message || 'Falha ao buscar grupos' });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { uploadCopyMedia } from '../lib/upload';
@@ -183,12 +183,20 @@ function EnviarCopyDialog({ folderId, mensagens, onClose, toast }) {
   const [data, setData] = useState(hojeISO());
   const [hora, setHora] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const cacheGrupos = useRef({}); // releaseId -> grupos (evita refetch ao trocar campanha)
 
   useEffect(() => {
     let vivo = true;
-    setGrupos(null); setGrupoId(''); setCarregandoGrupos(true);
+    setGrupoId('');
+    // Já buscado nesta sessão do diálogo? usa o cache, sem nova chamada à API.
+    if (cacheGrupos.current[releaseId]) {
+      setGrupos(cacheGrupos.current[releaseId]);
+      setCarregandoGrupos(false);
+      return () => { vivo = false; };
+    }
+    setGrupos(null); setCarregandoGrupos(true);
     api.get(`/copys/grupos?releaseId=${encodeURIComponent(releaseId)}`)
-      .then((d) => { if (vivo) setGrupos(d.grupos || []); })
+      .then((d) => { if (vivo) { cacheGrupos.current[releaseId] = d.grupos || []; setGrupos(d.grupos || []); } })
       .catch((e) => { if (vivo) { setGrupos([]); toast.erro(e.message || 'Falha ao buscar grupos'); } })
       .finally(() => { if (vivo) setCarregandoGrupos(false); });
     return () => { vivo = false; };
