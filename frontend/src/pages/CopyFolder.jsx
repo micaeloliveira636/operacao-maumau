@@ -119,8 +119,12 @@ export default function CopyFolder() {
                   onBlur={(e) => salvarMsg(m.id, { texto: e.target.value })} />
               ) : (
                 <div className="space-y-2">
-                  {m.tipo === 'image' && <img src={m.url} alt="" className="max-h-72 w-full rounded-lg object-contain" />}
-                  {m.tipo === 'video' && <video src={m.url} controls className="max-h-72 w-full rounded-lg" />}
+                  {m.tipo === 'image' && <img src={m.url} alt="" className="mx-auto max-h-80 w-full rounded-lg bg-ink-950 object-contain" />}
+                  {m.tipo === 'video' && (
+                    <video src={m.url} poster={String(m.url).replace(/\.mp4($|\?)/, '.jpg$1')}
+                      controls playsInline preload="metadata"
+                      className="mx-auto max-h-80 w-full rounded-lg bg-ink-950 object-contain" />
+                  )}
                   {m.tipo === 'audio' && <audio src={m.url} controls className="w-full" />}
                   {m.tipo !== 'audio' && (
                     <textarea className="input min-h-[44px] resize-y text-sm" placeholder="Legenda (opcional)" value={m.texto || ''}
