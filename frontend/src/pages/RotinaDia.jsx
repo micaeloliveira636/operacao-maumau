@@ -56,27 +56,38 @@ export default function RotinaDia() {
     if (!feedbackResp && operadores[0]) setFeedbackResp(operadores[0].id);
   }, [operadores, feedbackResp]);
 
+  // Mapeia os grupos de feedback do roteiro pro formato editável da tela.
+  function mapearFeedbacks(gs) {
+    const fbModelos = MODELOS['feedback-entrada'] || [];
+    return (gs || []).map((g) => ({
+      categoria: g.categoria,
+      titulo: g.titulo,
+      // Campanha padrão vem do roteiro (lara 19h=aquec; 13h/15h=aquec ou +ativos
+      // no sistema novo; entrada=ativos). Editável no toggle depois.
+      campanhas: g.campanhas || (g.categoria === 'feedback-lara' ? ['AQUECIMENTO'] : ['ATIVOS 1', 'ATIVOS 2']),
+      slots: g.slots.map((s) => ({
+        ordem: s.ordem, nome: s.nome, horario: s.horario, tipo: s.tipo,
+        legenda: fbModelos.find((m) => m.id === s.legendaId)?.texto || '',
+      })),
+    }));
+  }
+
   function preencher() {
     const r = montarRotina(dataAlvo, { sabadoModo, quintaModo });
     setBomDia(r.bomDia);
     setAquec(r.aquec);
     setPedidos(r.pedidos);
     setEntradas(r.entradas);
-    const fbModelos = MODELOS['feedback-entrada'] || [];
-    setFeedbacks(
-      (r.feedbacks || []).map((g) => ({
-        categoria: g.categoria,
-        titulo: g.titulo,
-        // Campanha padrão vem do roteiro (lara 19h=aquec; 13h/15h=aquec ou +ativos
-        // no sistema novo; entrada=ativos). Editável no toggle depois.
-        campanhas: g.campanhas || (g.categoria === 'feedback-lara' ? ['AQUECIMENTO'] : ['ATIVOS 1', 'ATIVOS 2']),
-        slots: g.slots.map((s) => ({
-          ordem: s.ordem, nome: s.nome, horario: s.horario, tipo: s.tipo,
-          legenda: fbModelos.find((m) => m.id === s.legendaId)?.texto || '',
-        })),
-      }))
-    );
+    setFeedbacks(mapearFeedbacks(r.feedbacks));
     toast.sucesso(`Roteiro de ${nomeDoDia(dataAlvo)} preenchido${r.sistemaNovo ? ' (sistema novo)' : ''}`);
+  }
+
+  // Preenche SÓ os feedbacks do dia (sem mexer em bom dia/aquecimento/pedidos/
+  // entradas). Pra quando você quer subir só o monte de feedbacks manualmente.
+  function preencherFeedbacks() {
+    const r = montarRotina(dataAlvo, { sabadoModo, quintaModo });
+    setFeedbacks(mapearFeedbacks(r.feedbacks));
+    toast.sucesso(`Feedbacks de ${nomeDoDia(dataAlvo)} preenchidos`);
   }
 
   // pedidos
@@ -414,9 +425,14 @@ export default function RotinaDia() {
 
         {/* Feedbacks — 1 demanda por grupo, com vários espaços dentro */}
         <div className="card card-pad space-y-3">
-          <div>
-            <h2 className="section-title">Feedbacks</h2>
-            <p className="mt-0.5 text-xs text-slate-500">Cada grupo é uma demanda só, com os espaços já nomeados. Giselle sobe a mídia em cada espaço; você agenda.</p>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h2 className="section-title">Feedbacks</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Cada grupo é uma demanda só, com os espaços já nomeados. Giselle sobe a mídia em cada espaço; você agenda.</p>
+            </div>
+            <button type="button" onClick={preencherFeedbacks} className="btn-ghost flex-none whitespace-nowrap px-2.5 py-1.5 text-xs">
+              <Icon name="sparkle" className="h-3.5 w-3.5" /> Preencher feedbacks
+            </button>
           </div>
 
           <div>
