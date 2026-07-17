@@ -9,6 +9,7 @@ import NovaDemanda from './pages/NovaDemanda';
 import RotinaDia from './pages/RotinaDia';
 import DemandaDetalhe from './pages/DemandaDetalhe';
 import Copys from './pages/Copys';
+import CopyFolder from './pages/CopyFolder';
 import Usuarios from './pages/Usuarios';
 import Config from './pages/Config';
 import NotFound from './pages/NotFound';
@@ -38,6 +39,7 @@ export default function App() {
       <Route path="/rotina" element={<Protected adminOnly><RotinaDia /></Protected>} />
       <Route path="/demandas/:id" element={<Protected><DemandaDetalhe /></Protected>} />
       <Route path="/copys" element={<Protected><Copys /></Protected>} />
+      <Route path="/copys/:id" element={<Protected adminOnly><CopyFolder /></Protected>} />
       <Route path="/usuarios" element={<Protected adminOnly><Usuarios /></Protected>} />
       <Route path="/config" element={<Protected><Config /></Protected>} />
       <Route path="*" element={<Protected><NotFound /></Protected>} />

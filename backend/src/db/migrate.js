@@ -133,6 +133,29 @@ async function migrate() {
   `;
 
   await client`
+    CREATE TABLE IF NOT EXISTS copy_folders (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      nome VARCHAR(200) NOT NULL,
+      descricao TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await client`
+    CREATE TABLE IF NOT EXISTS copy_mensagens (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      folder_id UUID NOT NULL REFERENCES copy_folders(id) ON DELETE CASCADE,
+      ordem INTEGER NOT NULL DEFAULT 0,
+      tipo VARCHAR(10) NOT NULL,
+      texto TEXT,
+      url TEXT,
+      offset_min INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await client`
     CREATE TABLE IF NOT EXISTS refresh_tokens (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID REFERENCES usuarios(id) ON DELETE CASCADE NOT NULL,

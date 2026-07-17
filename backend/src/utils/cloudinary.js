@@ -77,6 +77,35 @@ function urlEntrega({ publicId, tipo }) {
   return `https://res.cloudinary.com/${CLOUD_NAME}/${resource}/upload/${publicId}.${ext}`;
 }
 
+// Assinatura de upload para uma PASTA de copy (não amarrada a demanda).
+// Pasta: maumau-media/copys/{folderId}
+function assinarUploadCopy(folderId) {
+  assertConfigured();
+  const timestamp = Math.round(Date.now() / 1000);
+  const folder = `${UPLOAD_FOLDER}/copys/${folderId}`;
+  const toSign = `folder=${folder}&timestamp=${timestamp}`;
+  const signature = crypto.createHash('sha1').update(toSign + API_SECRET).digest('hex');
+  return {
+    cloudName: CLOUD_NAME,
+    apiKey: API_KEY,
+    timestamp,
+    folder,
+    signature,
+    uploadUrl: `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
+  };
+}
+
+// URL de entrega p/ mensagem de copy (inclui áudio). Áudio é resource 'video'
+// no Cloudinary — mantém o formato original (mp3/ogg/m4a).
+function urlEntregaCopy({ publicId, tipo, format }) {
+  assertConfigured();
+  if (tipo === 'image') return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicId}.jpg`;
+  if (tipo === 'video') return `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/${publicId}.mp4`;
+  // audio
+  const ext = format || 'mp3';
+  return `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/${publicId}.${ext}`;
+}
+
 /**
  * Remove um asset do Cloudinary (usado ao deletar arquivo).
  * Chamada assinada da Admin API.
@@ -118,8 +147,10 @@ function validarFormato(formato) {
 
 module.exports = {
   assinarUpload,
+  assinarUploadCopy,
   montarFolder,
   urlEntrega,
+  urlEntregaCopy,
   deletarAsset,
   validarFormato,
   FORMATOS_PERMITIDOS,

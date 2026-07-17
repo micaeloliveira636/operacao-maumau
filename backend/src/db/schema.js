@@ -111,6 +111,28 @@ const copysLancamento = pgTable('copys_lancamento', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+// Pastas de copy (ex.: "Abertura de grupo") com várias mensagens em sequência.
+// Ao "enviar copy" o admin escolhe início + grupo do AQUECIMENTO e o painel
+// agenda tudo em cascata pelos offsets configurados.
+const copyFolders = pgTable('copy_folders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: varchar('nome', { length: 200 }).notNull(),
+  descricao: text('descricao'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+const copyMensagens = pgTable('copy_mensagens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  folderId: uuid('folder_id').references(() => copyFolders.id, { onDelete: 'cascade' }).notNull(),
+  ordem: integer('ordem').notNull().default(0),
+  tipo: varchar('tipo', { length: 10 }).notNull(), // text | image | video | audio
+  texto: text('texto'), // texto (text) ou legenda/caption (mídia)
+  url: text('url'), // mídia (image/video/audio) — Cloudinary
+  offsetMin: integer('offset_min').notNull().default(0), // min após a mensagem anterior
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 const refreshTokens = pgTable('refresh_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => usuarios.id, { onDelete: 'cascade' }).notNull(),
@@ -155,6 +177,8 @@ module.exports = {
   sendflowSchedules,
   activityLogs,
   copysLancamento,
+  copyFolders,
+  copyMensagens,
   refreshTokens,
   pushSubscriptions,
   notificacoes,

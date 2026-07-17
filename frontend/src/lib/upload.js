@@ -54,3 +54,38 @@ export async function uploadArquivo({ demandaId, file, ordem, horario, legendaCu
   });
   return arquivo;
 }
+
+// Upload de mídia para uma PASTA de copy (imagem/vídeo/áudio). Devolve os dados
+// pra registrar a mensagem: { tipo, publicId, format }.
+export async function uploadCopyMedia({ folderId, file, onProgress }) {
+  const tipo = file.type.startsWith('image') ? 'image' : file.type.startsWith('audio') ? 'audio' : 'video';
+  const sig = await api.post(`/copys/folders/${folderId}/assinatura`, {});
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('api_key', sig.apiKey);
+  fd.append('timestamp', String(sig.timestamp));
+  fd.append('signature', sig.signature);
+  fd.append('folder', sig.folder);
+
+  const uploaded = await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', sig.uploadUrl);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      try {
+        const res = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) resolve(res);
+        else reject(new Error(res?.error?.message || 'Falha no upload'));
+      } catch {
+        reject(new Error('Resposta inválida do Cloudinary'));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Erro de rede no upload'));
+    xhr.send(fd);
+  });
+
+  return { tipo, publicId: uploaded.public_id, format: uploaded.format };
+}

@@ -16,6 +16,25 @@ async function ensureSchema() {
     sql`ALTER TABLE automation_jobs DROP CONSTRAINT IF EXISTS automation_jobs_type_check`,
     sql`ALTER TABLE automation_jobs ADD CONSTRAINT automation_jobs_type_check CHECK (type IN (
       'agendamento','agendamento-texto','notificacao','cancelamento'))`,
+    // Pastas de copy + mensagens (feature de "Copys" — tabelas novas).
+    sql`CREATE TABLE IF NOT EXISTS copy_folders (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      nome VARCHAR(200) NOT NULL,
+      descricao TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS copy_mensagens (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      folder_id UUID NOT NULL REFERENCES copy_folders(id) ON DELETE CASCADE,
+      ordem INTEGER NOT NULL DEFAULT 0,
+      tipo VARCHAR(10) NOT NULL,
+      texto TEXT,
+      url TEXT,
+      offset_min INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+    sql`CREATE INDEX IF NOT EXISTS idx_copy_mensagens_folder ON copy_mensagens(folder_id)`,
   ];
   let ok = 0;
   for (const passo of passos) {

@@ -271,6 +271,8 @@ async function agendarParaGrupos({
   let msg;
   if (tipo === 'text') {
     msg = { type: 'extendedTextMessage', message: { text: mensagem || '' } };
+  } else if (tipo === 'audio') {
+    msg = { type: 'audioMessage', message: { audio: { url } } };
   } else {
     const chave = tipo === 'video' ? 'video' : 'image';
     msg = { type: `${chave}Message`, message: { [chave]: { url }, caption: mensagem || '' } };
