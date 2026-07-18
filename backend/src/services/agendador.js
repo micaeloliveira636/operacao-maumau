@@ -582,8 +582,14 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
       velocidade: item.shippingSpeed,
       scheduledTo: new Date(item.scheduledTo),
       status: 'agendado',
-      // grupoFiltro/gruposAquec guardados p/ o reconferirChips re-segmentar ao recriar.
-      resultJson: { actionIds, grupoFiltro: item.grupoFiltro || null, gruposAquec: item.gruposAquec || null },
+      // grupoFiltro/gruposAquec/grupoIds guardados p/ o reconferirChips
+      // re-segmentar e detectar GRUPO NOVO na campanha antes do envio.
+      resultJson: {
+        actionIds,
+        grupoFiltro: item.grupoFiltro || null,
+        gruposAquec: item.gruposAquec || null,
+        grupoIds: grupoIds || null,
+      },
     });
     resultados.agendadas += 1;
   }
@@ -629,15 +635,10 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
     );
 
   const cacheChips = new Map();
+  const cacheGrupos = new Map(); // releaseId -> { link1, link2 } (1 busca por release)
   const res = { verificados: rows.length, reagendados: 0, semMudanca: 0, textoPulado: 0, erros: [] };
 
   for (const s of rows) {
-    // NUNCA reconfere envio de TEXTO (provisório). O admin às vezes completa a
-    // mensagem com a MÍDIA direto no SendFlow; se a gente recriasse aqui, ela
-    // voltaria a ser só texto e a mídia adicionada manualmente sumiria (era o
-    // bug que quebrava dias). Recheck só troca chip de envios de mídia.
-    if (s.tipoEnvio === 'text') { res.textoPulado += 1; continue; }
-
     let atuais;
     try {
       atuais = cacheChips.get(s.releaseId);
@@ -661,24 +662,21 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
       continue;
     }
 
-    const antes = [...(s.accountIds || [])].map(String).sort().join(',');
-    const depois = [...atuais].map(String).sort().join(',');
-    if (antes === depois) { res.semMudanca += 1; continue; }
-
-    // mudou -> apaga ações antigas e recria com os chips atuais
-    const antigos = Array.isArray(s.resultJson?.actionIds)
-      ? s.resultJson.actionIds.filter(Boolean)
-      : (s.sendflowActionId ? [s.sendflowActionId] : []);
-    if (antigos.length) await sendflow.deletarAcoes(antigos).catch(() => {});
-
-    // Segmentação por grupos (ATIVOS 1 entrada) preservada na recriação: se o
-    // schedule tinha grupoFiltro, recalcula os grupos atuais e re-segmenta.
+    // GRUPOS ATUAIS (antes de decidir recriar). Isso é essencial: um grupo que
+    // sai do AQUECIMENTO e entra no ATIVOS 1 DEPOIS do agendamento não estaria
+    // na lista fixa da ação e ficaria SEM a entrada. Como o link1/link2 é uma
+    // REGRA por nome, recalculamos e recriamos se o conjunto mudou.
     let grupoIds;
+    let gruposMudaram = false;
     const grupoFiltro = s.resultJson?.grupoFiltro || null;
     const gruposAquec = Array.isArray(s.resultJson?.gruposAquec) ? s.resultJson.gruposAquec : null;
     if (grupoFiltro) {
       try {
-        const div = dividirGruposPorLink(await sendflow.buscarGrupos(s.releaseId, { fresh: true }));
+        let div = cacheGrupos.get(s.releaseId);
+        if (!div) {
+          div = dividirGruposPorLink(await sendflow.buscarGrupos(s.releaseId, { fresh: true }));
+          cacheGrupos.set(s.releaseId, div);
+        }
         grupoIds = grupoFiltro === 'link2' ? div.link2 : div.link1;
       } catch (e) {
         if (ehBloqueioKey(e.message)) { res.bloqueado = true; res.erros.push(msgBloqueio(e.message)); break; }
@@ -690,9 +688,32 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
         res.erros.push(`${s.releaseId}: sem grupos para ${grupoFiltro} ao reconferir — pulado.`);
         continue;
       }
+      const gAntes = [...(s.resultJson?.grupoIds || [])].map(String).sort().join(',');
+      const gDepois = [...grupoIds].map(String).sort().join(',');
+      // sem registro anterior não dá pra comparar — não força recriação à toa
+      gruposMudaram = Boolean(gAntes) && gAntes !== gDepois;
     } else if (gruposAquec && gruposAquec.length) {
-      grupoIds = gruposAquec; // grupos fixos do AQUECIMENTO escolhidos na demanda
+      // AQUECIMENTO: lista escolhida à mão pelo admin — não muda sozinha.
+      grupoIds = gruposAquec;
     }
+
+    // TEXTO (provisório): em regra NÃO se mexe — o admin às vezes completa a
+    // mensagem com a MÍDIA direto no SendFlow e recriar apagaria essa mídia.
+    // ÚNICA exceção: um GRUPO entrou/saiu da campanha; aí é obrigatório recriar,
+    // senão o grupo novo (ex.: veio do AQUECIMENTO pro ATIVOS 1) fica SEM a
+    // mensagem de entrada. Troca de chip sozinha não justifica mexer no texto.
+    if (s.tipoEnvio === 'text' && !gruposMudaram) { res.textoPulado += 1; continue; }
+
+    const antes = [...(s.accountIds || [])].map(String).sort().join(',');
+    const depois = [...atuais].map(String).sort().join(',');
+    const chipsMudaram = antes !== depois;
+    if (!chipsMudaram && !gruposMudaram) { res.semMudanca += 1; continue; }
+
+    // mudou (chip e/ou grupo) -> apaga ações antigas e recria
+    const antigos = Array.isArray(s.resultJson?.actionIds)
+      ? s.resultJson.actionIds.filter(Boolean)
+      : (s.sendflowActionId ? [s.sendflowActionId] : []);
+    if (antigos.length) await sendflow.deletarAcoes(antigos).catch(() => {});
 
     const scheduledTo = new Date(s.scheduledTo).toISOString();
     const comum = {
@@ -730,7 +751,7 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
       .set({
         accountIds: atuais,
         sendflowActionId: envio.actionId || null,
-        resultJson: { actionIds: novos, reagendado: true, em: agora.toISOString(), grupoFiltro, gruposAquec },
+        resultJson: { actionIds: novos, reagendado: true, em: agora.toISOString(), grupoFiltro, gruposAquec, grupoIds: grupoIds || null },
       })
       .where(eq(sendflowSchedules.id, s.id));
     res.reagendados += 1;
