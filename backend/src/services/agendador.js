@@ -1,6 +1,6 @@
 const { and, eq, ne, gte, lte, isNull, inArray } = require('drizzle-orm');
 const { db } = require('../db');
-const { sendflowSchedules, automationJobs } = require('../db/schema');
+const { sendflowSchedules, automationJobs, configuracoes } = require('../db/schema');
 const sendflow = require('../utils/sendflow');
 
 // Nome canônico das campanhas (o que casa com a regra de AQUECIMENTO).
@@ -786,6 +786,24 @@ async function reconferirChips({ janelaMin = 15, forcar = false } = {}) {
       .where(eq(sendflowSchedules.id, s.id));
     res.reagendados += 1;
     if (gruposMudaram) res.porGrupoNovo += 1;
+  }
+
+  // HEARTBEAT: registra que a verificação rodou. Sem isso, se o cron externo
+  // morrer, a checagem de grupos simplesmente para de acontecer EM SILÊNCIO —
+  // e um grupo novo ficaria sem a mensagem sem ninguém perceber. O painel usa
+  // isso pra avisar quando a verificação está atrasada.
+  try {
+    const resumo = JSON.stringify({
+      em: agora.toISOString(),
+      verificados: res.verificados,
+      reagendados: res.reagendados,
+      porGrupoNovo: res.porGrupoNovo,
+    });
+    await db.insert(configuracoes)
+      .values({ chave: 'ultima_reconferencia', valor: resumo, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: configuracoes.chave, set: { valor: resumo, updatedAt: new Date() } });
+  } catch (e) {
+    console.error('Falha ao gravar heartbeat da reconferência:', e?.message);
   }
 
   return { ok: true, ...res };

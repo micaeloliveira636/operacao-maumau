@@ -9,6 +9,32 @@ import {
 import { Avatar, Spinner } from '../components/ui';
 import { Icon } from '../components/Icon';
 
+// Saúde da verificação de chips/grupos. Se ela parar (cron caiu), a checagem de
+// grupo novo para EM SILÊNCIO e um grupo pode ficar sem a mensagem — então o
+// painel avisa em vermelho quando está atrasada.
+function SaudeReconferencia({ dados }) {
+  if (!dados?.em) {
+    return (
+      <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+        ⚠ A verificação automática ainda não rodou nenhuma vez. Confira se o cron externo está ativo.
+      </p>
+    );
+  }
+  const min = Math.floor((Date.now() - new Date(dados.em).getTime()) / 60000);
+  const atrasada = min > 20;
+  const quando = min < 1 ? 'agora há pouco' : min < 60 ? `há ${min} min` : `há ${Math.floor(min / 60)}h`;
+  return (
+    <p className={`rounded-lg border px-3 py-2 text-[11px] ${
+      atrasada ? 'border-rose-500/40 bg-rose-500/10 text-rose-200' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+    }`}>
+      {atrasada ? '⚠ ' : '✓ '}Última verificação de chips e grupos: <strong>{quando}</strong>
+      {` · ${dados.verificados ?? 0} envio(s) conferido(s)`}
+      {dados.porGrupoNovo ? `, ${dados.porGrupoNovo} corrigido(s) por grupo novo` : ''}
+      {atrasada && ' — parece que o cron parou. Use o botão acima e verifique o cron externo.'}
+    </p>
+  );
+}
+
 export default function Config() {
   const { user, logout, isAdmin } = useAuth();
   const toast = useToast();
@@ -147,12 +173,13 @@ const CAMPOS_AVANCADO = [
 function SendflowSettings() {
   const toast = useToast();
   const [cfg, setCfg] = useState(null);
+  const [ultimaRec, setUltimaRec] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [testando, setTestando] = useState(false);
   const [avancado, setAvancado] = useState(false);
 
   useEffect(() => {
-    api.get('/configuracoes').then((d) => setCfg(d.config)).catch(() => {});
+    api.get('/configuracoes').then((d) => { setCfg(d.config); setUltimaRec(d.ultimaReconferencia || null); }).catch(() => {});
   }, []);
 
   const set = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
@@ -264,6 +291,7 @@ function SendflowSettings() {
               <strong className="text-slate-400"> Use este botão sempre que ADICIONAR UM GRUPO NOVO na campanha</strong> — ele
               reconstrói os envios que ainda vão sair hoje já com o grupo novo incluído (senão o grupo fica sem a mensagem).
             </p>
+            <SaudeReconferencia dados={ultimaRec} />
           </div>
         </div>
       </div>

@@ -1,4 +1,7 @@
 const express = require('express');
+const { eq } = require('drizzle-orm');
+const { db } = require('../db');
+const { configuracoes } = require('../db/schema');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { logActivity } = require('../utils/logger');
 const cfg = require('../utils/config');
@@ -10,7 +13,15 @@ const router = express.Router();
 router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const config = await cfg.getPublic();
-    return res.json({ config });
+    // Heartbeat da verificação de chips/grupos — o painel avisa se está atrasada
+    // (se o cron morrer, a checagem de grupo novo para em silêncio).
+    let ultimaReconferencia = null;
+    try {
+      const [linha] = await db.select().from(configuracoes)
+        .where(eq(configuracoes.chave, 'ultima_reconferencia')).limit(1);
+      if (linha?.valor) ultimaReconferencia = JSON.parse(linha.valor);
+    } catch {}
+    return res.json({ config, ultimaReconferencia });
   } catch (err) {
     console.error('Erro ao ler configuracoes:', err);
     return res.status(500).json({ error: 'Erro interno' });
