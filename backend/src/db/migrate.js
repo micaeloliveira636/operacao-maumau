@@ -205,6 +205,8 @@ async function migrate() {
   await client`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS link_dois TEXT`;
   await client`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS slots JSONB`;
   await client`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS grupos_aquecimento TEXT[]`;
+  await client`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS slot VARCHAR(60)`;
+  await client`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS entrada_hora VARCHAR(5)`;
   await client`ALTER TABLE arquivos ADD COLUMN IF NOT EXISTS link_principal TEXT`;
   await client`ALTER TABLE arquivos ADD COLUMN IF NOT EXISTS link_dois TEXT`;
   await client`ALTER TABLE sendflow_schedules ADD COLUMN IF NOT EXISTS variante VARCHAR(20) DEFAULT 'principal'`;

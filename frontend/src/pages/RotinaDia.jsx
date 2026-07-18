@@ -239,6 +239,7 @@ export default function RotinaDia() {
         legenda, campanhasDestino: ['ATIVOS 1', 'ATIVOS 2'],
         releaseIds: releasesDe(['ATIVOS 1', 'ATIVOS 2']), atribuidoA: user?.id, velocidade: 'normal',
         linkPrincipal: linkDia.principal || null, linkDois: linkDia.dois || null,
+        slot: e.slot || null, entradaHora: e.hora,
       });
     }
     for (const g of feedbacks) {
@@ -253,6 +254,9 @@ export default function RotinaDia() {
         campanhasDestino: camps, releaseIds: releasesDe(camps),
         atribuidoA: feedbackResp, velocidade: 'slow',
         gruposAquecimento: g.gruposAquec || [],
+        // liga o feedback à entrada (hora + slot) p/ trocar o slot em cascata depois
+        entradaHora: g.entradaHora || null,
+        slot: g.entradaHora ? (entradas.find((x) => x.hora === g.entradaHora)?.slot || null) : null,
       });
     }
     return out;

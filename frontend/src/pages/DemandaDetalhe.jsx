@@ -9,7 +9,7 @@ import { StatusBadge, CategoriaTag, LoadingScreen, EmptyState, Modal, Spinner, S
 import { WhatsappPreview } from '../components/WhatsappPreview';
 import { ArquivoUploader } from '../components/ArquivoUploader';
 import { uploadArquivo } from '../lib/upload';
-import { FRASES_FEEDBACK } from '../lib/modelos';
+import { FRASES_FEEDBACK, SLOTS } from '../lib/modelos';
 import { SuccessOverlay } from '../components/SuccessOverlay';
 import { Icon } from '../components/Icon';
 
@@ -149,6 +149,29 @@ export default function DemandaDetalhe() {
       toast.sucesso('Campanhas atualizadas');
     } catch (err) {
       toast.erro(err.message);
+    }
+  }
+
+  // Troca o slot da entrada EM CASCATA: título, texto agendado (reagenda no
+  // SendFlow) e o título do feedback ligado àquela entrada.
+  const [trocandoSlot, setTrocandoSlot] = useState(false);
+  async function trocarSlot(novoSlot) {
+    if (!novoSlot || novoSlot === demanda.slot) return;
+    setTrocandoSlot(true);
+    try {
+      const r = await api.patch(`/demandas/${id}/slot`, { slot: novoSlot });
+      setDemanda(r.demanda);
+      const partes = ['Slot trocado'];
+      if (r.feedback) partes.push('feedback atualizado');
+      if (r.reagendado) {
+        partes.push(r.reagendado.ok ? 'texto reagendado' : `falha ao reagendar: ${(r.reagendado.erros || [])[0] || ''}`);
+      }
+      if (r.reagendado && !r.reagendado.ok) toast.erro(partes.join(' · '));
+      else toast.sucesso(partes.join(' · '));
+    } catch (err) {
+      toast.erro(err.message);
+    } finally {
+      setTrocandoSlot(false);
     }
   }
 
@@ -329,6 +352,23 @@ export default function DemandaDetalhe() {
                 );
               })}
             </div>
+            {demanda.categoria === 'entrada' && (
+              <div className="mt-3">
+                <p className="mb-1.5 text-xs text-slate-500">
+                  Slot do jogo — trocar aqui atualiza o título, o texto agendado e o feedback ligado
+                </p>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={demanda.slot || ''}
+                    onChange={trocarSlot}
+                    placeholder="Escolher slot…"
+                    className="max-w-xs flex-1"
+                    options={SLOTS.map((s) => ({ value: s, label: s }))}
+                  />
+                  {trocandoSlot && <Spinner className="h-4 w-4 text-brand-300" />}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           (demanda.campanhasDestino || []).length > 0 && (

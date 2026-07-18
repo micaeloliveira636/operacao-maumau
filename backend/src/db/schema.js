@@ -33,6 +33,11 @@ const demandas = pgTable('demandas', {
   // Grupos específicos do AQUECIMENTO (gids) p/ pedidos e feedbacks de lara.
   // Vazio/null = campanha AQUECIMENTO inteira. Só afeta o envio ao AQUECIMENTO.
   gruposAquecimento: text('grupos_aquecimento').array(),
+  // Slot do jogo (ex.: 'FORTUNE DRAGON 🐉') — entrada e o feedback ligado a ela.
+  // Permite trocar o slot depois (atualiza título, texto e o feedback junto).
+  slot: varchar('slot', { length: 60 }),
+  // Só no feedback-entrada: hora da entrada à qual ele pertence (liga os dois).
+  entradaHora: varchar('entrada_hora', { length: 5 }),
   // Espaços nomeados (feedbacks): [{ordem, nome, horario, legenda, tipo:'texto'|'midia'}]
   slots: jsonb('slots'),
   motivoRejeicao: text('motivo_rejeicao'),

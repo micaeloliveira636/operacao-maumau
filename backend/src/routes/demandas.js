@@ -169,6 +169,8 @@ router.post('/rotina', requireAuth, requireAdmin, async (req, res) => {
         linkPrincipal: d.linkPrincipal || null,
         linkDois: d.linkDois || null,
         gruposAquecimento: Array.isArray(d.gruposAquecimento) && d.gruposAquecimento.length ? d.gruposAquecimento : null,
+        slot: d.slot || null,
+        entradaHora: d.entradaHora || null,
         slots: Array.isArray(d.slots) ? d.slots : null,
       }).returning();
       criadas.push(nova);
@@ -299,6 +301,93 @@ router.patch('/:id', requireAuth, async (req, res) => {
     return res.json({ demanda: updated });
   } catch (err) {
     console.error('Erro ao editar demanda:', err);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+/**
+ * PATCH /demandas/:id/slot — troca o SLOT de uma entrada EM CASCATA:
+ *  1. título da entrada        ("Entrada 21:30 — FORTUNE DRAGON 🐉")
+ *  2. texto/legenda da entrada (troca o nome do slot antigo pelo novo)
+ *  3. título do feedback ligado ("Feedbacks entrada 21h30 - FORTUNE DRAGON 🐉")
+ *  4. se o texto já estava agendado, apaga no SendFlow e reagenda com o novo
+ * Serve pra quando o slot muda em cima da hora (ex.: trocar às 13h).
+ */
+router.patch('/:id/slot', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const novoSlot = String(req.body?.slot || '').trim();
+    if (!novoSlot) return res.status(400).json({ error: 'slot obrigatório' });
+
+    const [demanda] = await db.select().from(demandas).where(eq(demandas.id, req.params.id)).limit(1);
+    if (!demanda) return res.status(404).json({ error: 'Demanda não encontrada' });
+    if (demanda.categoria !== 'entrada') {
+      return res.status(400).json({ error: 'Trocar slot só vale para demanda de entrada' });
+    }
+    if (['agendado', 'concluido'].includes(demanda.status)) {
+      return res.status(400).json({ error: 'Demanda já agendada com mídia — cancele o agendamento antes de trocar o slot' });
+    }
+
+    // Demandas criadas antes do campo `slot` existir: deduz o slot antigo pelo
+    // título ("Entrada 21:30 — FORTUNE SNAKE 🐍"), assim a troca funciona nelas.
+    const slotAntigo = demanda.slot || (String(demanda.titulo || '').match(/—\s*(.+)$/)?.[1] || '').trim();
+    const hora = (demanda.horarios || [])[0] || '';
+
+    // texto: troca todas as ocorrências do slot antigo pelo novo (o slot entra
+    // literal na legenda via {slot}). Sem slot antigo, mantém o texto.
+    let novaLegenda = demanda.legenda || '';
+    if (slotAntigo && novaLegenda.includes(slotAntigo)) {
+      novaLegenda = novaLegenda.split(slotAntigo).join(novoSlot);
+    }
+    const novoTitulo = `Entrada ${hora}${novoSlot ? ` — ${novoSlot}` : ''}`;
+
+    // Se o texto já estava agendado, remove os provisórios antes de reagendar.
+    const tinhaTexto = demanda.status === 'texto_agendado';
+    if (tinhaTexto) await agendador.apagarProvisorios(demanda.id).catch(() => {});
+
+    const [atualizada] = await db.update(demandas)
+      .set({ slot: novoSlot, titulo: novoTitulo, legenda: novaLegenda, updatedAt: new Date() })
+      .where(eq(demandas.id, demanda.id))
+      .returning();
+
+    // Feedback ligado a essa entrada (mesma data + hora da entrada).
+    let feedbackAtualizado = null;
+    if (hora) {
+      const candidatos = await db.select().from(demandas).where(and(
+        eq(demandas.dataAlvo, demanda.dataAlvo),
+        eq(demandas.categoria, 'feedback-entrada')
+      ));
+      // liga por entradaHora; nas antigas (sem o campo) cai pro título.
+      const horaH = String(hora).replace(':', 'h');
+      const fb = candidatos.find((c) => c.entradaHora === hora)
+        || candidatos.find((c) => String(c.titulo || '').includes(horaH) || String(c.titulo || '').includes(hora));
+      if (fb && !['agendado', 'concluido'].includes(fb.status)) {
+        const tituloFb = `Feedbacks entrada ${String(hora).replace(':', 'h')} - ${novoSlot}`;
+        [feedbackAtualizado] = await db.update(demandas)
+          .set({ slot: novoSlot, titulo: tituloFb, updatedAt: new Date() })
+          .where(eq(demandas.id, fb.id))
+          .returning();
+      }
+    }
+
+    // Reagenda o texto com a legenda nova.
+    let reagendado = null;
+    if (tinhaTexto) {
+      const r = await agendador.executarAgendamentoTexto(atualizada, req.user.id);
+      reagendado = { ok: r.ok, agendadas: r.agendadas || 0, erros: r.erros || [] };
+      if (!r.ok) {
+        await db.update(demandas).set({ status: 'erro_agendamento', updatedAt: new Date() }).where(eq(demandas.id, demanda.id));
+      }
+    }
+
+    await logActivity({
+      demandaId: demanda.id, userId: req.user.id, action: 'demanda.slot.trocado',
+      metadata: { de: slotAntigo, para: novoSlot, reagendado: !!tinhaTexto },
+      ipAddress: req.ip,
+    });
+
+    return res.json({ demanda: atualizada, feedback: feedbackAtualizado, reagendado });
+  } catch (err) {
+    console.error('Erro ao trocar slot:', err);
     return res.status(500).json({ error: 'Erro interno' });
   }
 });

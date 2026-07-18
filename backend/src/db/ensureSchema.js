@@ -37,6 +37,9 @@ async function ensureSchema() {
     sql`CREATE INDEX IF NOT EXISTS idx_copy_mensagens_folder ON copy_mensagens(folder_id)`,
     // Grupos específicos do AQUECIMENTO (pedidos / feedbacks de lara).
     sql`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS grupos_aquecimento TEXT[]`,
+    // Slot do jogo + hora da entrada ligada (troca de slot em cascata).
+    sql`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS slot VARCHAR(60)`,
+    sql`ALTER TABLE demandas ADD COLUMN IF NOT EXISTS entrada_hora VARCHAR(5)`,
   ];
   let ok = 0;
   for (const passo of passos) {
