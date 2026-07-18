@@ -569,11 +569,13 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Demanda precisa estar aprovada para agendar' });
     }
 
-    // REAGENDAR DO ZERO: limpa o que existir (SendFlow + banco) antes de refazer.
-    // Sem isso, depois de um erro a idempotência pulava tudo e era impossível
-    // reenviar — travava o dia e obrigava a agendar na mão.
+    // RECUPERAÇÃO AUTOMÁTICA: se a tentativa anterior deu erro ou ficou travada
+    // em "Agendando", limpa o que sobrou (SendFlow + banco) e refaz do zero.
+    // Sem isso a idempotência pulava tudo e era impossível reenviar — o admin
+    // ficava obrigado a agendar na mão no SendFlow.
+    const precisaLimpar = ['erro_agendamento', 'agendamento_pendente'].includes(demanda.status);
     let limpeza = null;
-    if (req.body?.forcar) {
+    if (req.body?.forcar || precisaLimpar) {
       limpeza = await agendador.limparAgendamentos(demanda.id).catch(() => null);
     }
 

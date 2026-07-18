@@ -200,14 +200,6 @@ export default function DemandaDetalhe() {
   // Confirmação dentro do app: { titulo, mensagem, confirmLabel, perigo, acao }
   const [confirmacao, setConfirmacao] = useState(null);
 
-  function reagendarZero() {
-    setConfirmacao({
-      titulo: 'Reagendar do zero',
-      mensagem: 'Isso apaga os envios desta demanda no SendFlow e agenda tudo de novo, do começo.\nUse quando deu erro e não está conseguindo reenviar.',
-      confirmLabel: 'Reagendar',
-      acao: () => confirmarAgendamento(true),
-    });
-  }
 
   function agendarTexto() {
     setConfirmacao({
@@ -394,7 +386,6 @@ export default function DemandaDetalhe() {
         onAgendar={abrirPreview}
         onAgendarTexto={agendarTexto}
         agendando={agendando}
-        onReagendarZero={reagendarZero}
         onCancelarAgendamento={cancelarAgendamento}
         onConcluir={() => mudarStatus('concluido')}
       />
@@ -774,7 +765,7 @@ function Info({ icon, label, valor }) {
 
 function ActionBar({
   demanda, isAdmin, autoGerida, acao, arquivos, midiasUsaveis, agendando,
-  onEnviar, onAprovar, onRejeitar, onAgendar, onAgendarTexto, onReagendarZero, onCancelarAgendamento, onConcluir,
+  onEnviar, onAprovar, onRejeitar, onAgendar, onAgendarTexto, onCancelarAgendamento, onConcluir,
 }) {
   const st = demanda.status;
   const totalHorarios = (demanda.horarios || []).length;
@@ -874,13 +865,6 @@ function ActionBar({
       <button key="agendar" onClick={onAgendar} disabled={acao || agendando || !podeAgendar} className="btn-primary">
         {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="send" className="h-4 w-4" />}
         {st === 'erro_agendamento' ? 'Tentar agendar novamente' : 'Agendar no SendFlow'}
-      </button>
-    );
-    // Destrava o caso "deu erro e não consigo mais enviar": apaga o que existir
-    // no SendFlow/banco e refaz o agendamento do zero.
-    btns.push(
-      <button key="refazer" onClick={onReagendarZero} disabled={acao || agendando || !podeAgendar} className="btn-ghost">
-        <Icon name="refresh" className="h-4 w-4" /> Reagendar do zero
       </button>
     );
     if (!podeAgendar)
