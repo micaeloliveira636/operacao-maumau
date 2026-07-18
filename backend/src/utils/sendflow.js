@@ -62,6 +62,22 @@ async function fetchComTimeout(url, opts = {}, ms = 20000) {
 let ultimaChamada = 0;
 let filaThrottle = Promise.resolve();
 const INTERVALO_MIN_MS = 1200;
+
+// TETO POR MINUTO. Só espaçar não basta: agendar um feedback já dispara ~12
+// chamadas; a 1,2s isso dá ~50/min e, agendando duas demandas seguidas, o
+// SendFlow acusa violação. Aqui limitamos o VOLUME numa janela deslizante de
+// 60s — quando enche, a próxima chamada espera a mais antiga sair da janela.
+const MAX_POR_MINUTO = 20;
+const JANELA_MS = 60000;
+const carimbos = []; // horários das últimas chamadas (janela de 60s)
+
+function esperarVaga() {
+  const agora = Date.now();
+  while (carimbos.length && agora - carimbos[0] > JANELA_MS) carimbos.shift();
+  if (carimbos.length < MAX_POR_MINUTO) return 0;
+  return carimbos[0] + JANELA_MS - agora; // espera a mais antiga expirar
+}
+
 function respeitarIntervalo() {
   filaThrottle = filaThrottle.then(async () => {
     // Em cooldown de rate limit, espera ele passar (bater durante a punição
@@ -69,7 +85,11 @@ function respeitarIntervalo() {
     const alvo = Math.max(ultimaChamada + INTERVALO_MIN_MS, limiteAte);
     const espera = alvo - Date.now();
     if (espera > 0) await new Promise((r) => setTimeout(r, espera));
+    // respeita também o teto por minuto (pode exigir uma espera bem maior)
+    const vaga = esperarVaga();
+    if (vaga > 0) await new Promise((r) => setTimeout(r, vaga + 50));
     ultimaChamada = Date.now();
+    carimbos.push(ultimaChamada);
   });
   return filaThrottle;
 }
