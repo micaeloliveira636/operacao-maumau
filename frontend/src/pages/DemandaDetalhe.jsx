@@ -27,7 +27,6 @@ export default function DemandaDetalhe() {
   const [acao, setAcao] = useState(false);
   const [modalRejeitar, setModalRejeitar] = useState(false);
   const [motivo, setMotivo] = useState('');
-  const [payload, setPayload] = useState(null);
   const [overlay, setOverlay] = useState(null); // mensagem do overlay de sucesso
   const [editArq, setEditArq] = useState(null); // arquivo sendo editado
   const [plano, setPlano] = useState(null); // preview do agendamento
@@ -105,27 +104,6 @@ export default function DemandaDetalhe() {
     setMotivo('');
   }
 
-  async function gerarPayload() {
-    setAcao(true);
-    try {
-      const data = await api.get(`/demandas/${id}/agendamento-payload`);
-      setPayload(data);
-    } catch (err) {
-      toast.erro(err.message || 'Erro ao gerar payload');
-    } finally {
-      setAcao(false);
-    }
-  }
-
-  async function copiarPayload() {
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-      toast.sucesso('Payload copiado — cole no Claude para agendar');
-    } catch {
-      toast.erro('Não foi possível copiar');
-    }
-  }
-
   async function salvarSlots(novosSlots) {
     try {
       const { demanda: upd } = await api.patch(`/demandas/${id}`, { slots: novosSlots });
@@ -198,10 +176,12 @@ export default function DemandaDetalhe() {
     }
   }
 
-  async function confirmarAgendamento() {
+  // forcar = apaga o que existir (SendFlow + banco) e refaz do zero. Destrava o
+  // caso "deu erro e não consigo mais reenviar".
+  async function confirmarAgendamento(forcar = false) {
     setAgendando(true);
     try {
-      const { demanda: upd, resultado } = await api.post(`/demandas/${id}/agendar`);
+      const { demanda: upd, resultado } = await api.post(`/demandas/${id}/agendar`, forcar ? { forcar: true } : {});
       setDemanda(upd);
       setPlano(null);
       if (resultado?.ok) {
@@ -219,6 +199,15 @@ export default function DemandaDetalhe() {
 
   // Confirmação dentro do app: { titulo, mensagem, confirmLabel, perigo, acao }
   const [confirmacao, setConfirmacao] = useState(null);
+
+  function reagendarZero() {
+    setConfirmacao({
+      titulo: 'Reagendar do zero',
+      mensagem: 'Isso apaga os envios desta demanda no SendFlow e agenda tudo de novo, do começo.\nUse quando deu erro e não está conseguindo reenviar.',
+      confirmLabel: 'Reagendar',
+      acao: () => confirmarAgendamento(true),
+    });
+  }
 
   function agendarTexto() {
     setConfirmacao({
@@ -405,7 +394,7 @@ export default function DemandaDetalhe() {
         onAgendar={abrirPreview}
         onAgendarTexto={agendarTexto}
         agendando={agendando}
-        onGerarPayload={gerarPayload}
+        onReagendarZero={reagendarZero}
         onCancelarAgendamento={cancelarAgendamento}
         onConcluir={() => mudarStatus('concluido')}
       />
@@ -484,23 +473,6 @@ export default function DemandaDetalhe() {
       </div>
       )}
 
-      {/* Payload de agendamento */}
-      {payload && (
-        <div className="card card-pad">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-200">Payload de agendamento</h2>
-            <button onClick={copiarPayload} className="btn-ghost px-3 py-1.5 text-xs">
-              <Icon name="clipboard" className="h-3.5 w-3.5" /> Copiar
-            </button>
-          </div>
-          <p className="mb-3 text-xs text-slate-500">
-            Cole este JSON no Claude para agendar no SendFlow.
-          </p>
-          <pre className="max-h-80 overflow-auto rounded-xl border border-white/5 bg-ink-950/80 p-4 text-xs leading-relaxed text-slate-300">
-            {JSON.stringify(payload, null, 2)}
-          </pre>
-        </div>
-      )}
 
       {/* Modal de rejeição */}
       <Modal open={modalRejeitar} onClose={() => setModalRejeitar(false)} titulo="Rejeitar demanda">
@@ -802,7 +774,7 @@ function Info({ icon, label, valor }) {
 
 function ActionBar({
   demanda, isAdmin, autoGerida, acao, arquivos, midiasUsaveis, agendando,
-  onEnviar, onAprovar, onRejeitar, onAgendar, onAgendarTexto, onGerarPayload, onCancelarAgendamento, onConcluir,
+  onEnviar, onAprovar, onRejeitar, onAgendar, onAgendarTexto, onReagendarZero, onCancelarAgendamento, onConcluir,
 }) {
   const st = demanda.status;
   const totalHorarios = (demanda.horarios || []).length;
@@ -902,9 +874,13 @@ function ActionBar({
       <button key="agendar" onClick={onAgendar} disabled={acao || agendando || !podeAgendar} className="btn-primary">
         {agendando ? <Spinner className="h-4 w-4" /> : <Icon name="send" className="h-4 w-4" />}
         {st === 'erro_agendamento' ? 'Tentar agendar novamente' : 'Agendar no SendFlow'}
-      </button>,
-      <button key="payload" onClick={onGerarPayload} disabled={acao} className="btn-ghost">
-        <Icon name="sparkle" className="h-4 w-4" /> Payload p/ Claude
+      </button>
+    );
+    // Destrava o caso "deu erro e não consigo mais enviar": apaga o que existir
+    // no SendFlow/banco e refaz o agendamento do zero.
+    btns.push(
+      <button key="refazer" onClick={onReagendarZero} disabled={acao || agendando || !podeAgendar} className="btn-ghost">
+        <Icon name="refresh" className="h-4 w-4" /> Reagendar do zero
       </button>
     );
     if (!podeAgendar)

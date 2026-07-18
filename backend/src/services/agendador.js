@@ -1,4 +1,4 @@
-const { and, eq, gte, lte, isNull, inArray } = require('drizzle-orm');
+const { and, eq, ne, gte, lte, isNull, inArray } = require('drizzle-orm');
 const { db } = require('../db');
 const { sendflowSchedules, automationJobs } = require('../db/schema');
 const sendflow = require('../utils/sendflow');
@@ -364,6 +364,28 @@ async function apagarAcoesDaDemanda(demandaId) {
   return actionIds.length;
 }
 
+/**
+ * LIMPA TUDO de uma demanda pra permitir reagendar do zero.
+ * Apaga as ações no SendFlow (best-effort — se a ação já não existe lá, tudo
+ * bem) e marca TODOS os schedules como cancelados, liberando a idempotência.
+ * É o que destrava o caso "deu erro e agora não consigo mais enviar".
+ */
+async function limparAgendamentos(demandaId) {
+  const rows = await db.select().from(sendflowSchedules).where(eq(sendflowSchedules.demandaId, demandaId));
+  const actionIds = [];
+  for (const s of rows) {
+    if (s.status === 'cancelado') continue;
+    const arr = Array.isArray(s.resultJson?.actionIds) ? s.resultJson.actionIds.filter(Boolean) : [];
+    for (const a of arr) actionIds.push(a);
+    if (!arr.length && s.sendflowActionId) actionIds.push(s.sendflowActionId);
+  }
+  if (actionIds.length) await sendflow.deletarAcoes(actionIds).catch(() => {});
+  // marca cancelado mesmo sem actionId (linha órfã não pode travar o reagendamento)
+  await db.update(sendflowSchedules).set({ status: 'cancelado' })
+    .where(and(eq(sendflowSchedules.demandaId, demandaId), ne(sendflowSchedules.status, 'cancelado')));
+  return { acoesRemovidas: actionIds.length, schedulesLimpos: rows.length };
+}
+
 /** Agenda só o texto (provisório). */
 async function executarAgendamentoTexto(demanda, userId) {
   const { itens, avisos } = montarPlanoTexto(demanda);
@@ -451,7 +473,11 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
             eq(sendflowSchedules.demandaId, demanda.id),
             arqCond,
             eq(sendflowSchedules.releaseId, item.releaseId),
-            eq(sendflowSchedules.variante, item.variante)
+            eq(sendflowSchedules.variante, item.variante),
+            // CANCELADO não conta: senão, depois de cancelar, a retentativa
+            // continuava "pulando" tudo e era impossível reagendar (travava o
+            // dia e obrigava a agendar na mão no SendFlow).
+            ne(sendflowSchedules.status, 'cancelado')
           )
         )
         .limit(1);
@@ -767,5 +793,5 @@ async function reconferirChips({ janelaMin = 15, forcar = false } = {}) {
 
 module.exports = {
   montarPlano, montarPlanoTexto, executarAgendamento, executarAgendamentoTexto,
-  apagarProvisorios, apagarAcoesDaDemanda, reconferirChips, montarLegenda, montarScheduledTo, ehAutoGerida, jaPassou,
+  apagarProvisorios, apagarAcoesDaDemanda, limparAgendamentos, reconferirChips, montarLegenda, montarScheduledTo, ehAutoGerida, jaPassou,
 };

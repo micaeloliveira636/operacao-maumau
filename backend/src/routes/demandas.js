@@ -569,6 +569,14 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Demanda precisa estar aprovada para agendar' });
     }
 
+    // REAGENDAR DO ZERO: limpa o que existir (SendFlow + banco) antes de refazer.
+    // Sem isso, depois de um erro a idempotência pulava tudo e era impossível
+    // reenviar — travava o dia e obrigava a agendar na mão.
+    let limpeza = null;
+    if (req.body?.forcar) {
+      limpeza = await agendador.limparAgendamentos(demanda.id).catch(() => null);
+    }
+
     // marca como em processamento
     await db
       .update(demandas)
@@ -596,6 +604,7 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
         agendadas: resultado.agendadas,
         puladas: resultado.puladas,
         erros: resultado.erros,
+        limpeza,
       },
       ipAddress: req.ip,
     });
@@ -681,13 +690,13 @@ router.post('/:id/cancelar-agendamento', requireAuth, requireAdmin, async (req, 
       if (!doResult.length && s.sendflowActionId) actionIds.push(s.sendflowActionId);
     }
 
-    if (actionIds.length === 0) {
-      return res.status(400).json({ error: 'Nenhuma ação agendada para cancelar' });
-    }
-
-    const del = await sendflow.deletarAcoes(actionIds);
-    if (!del.ok) {
-      return res.status(400).json({ error: `SendFlow: ${del.error}` });
+    // NÃO trava quando não há actionId (linha órfã de um agendamento que falhou):
+    // o cancelamento precisa SEMPRE liberar a demanda pra reagendar, senão fica
+    // presa pra sempre e só resta agendar na mão no SendFlow.
+    if (actionIds.length) {
+      const del = await sendflow.deletarAcoes(actionIds);
+      // falha ao apagar no SendFlow também não pode travar — segue e libera aqui
+      if (!del.ok) console.error('Cancelar: falha ao apagar no SendFlow (seguindo):', del.error);
     }
 
     // marca schedules como cancelados e volta a demanda para aprovado
