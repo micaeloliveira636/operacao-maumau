@@ -237,7 +237,10 @@ router.post('/rotina', requireAuth, requireAdmin, async (req, res) => {
 router.post('/reconferir-chips', requireAuth, requireAdmin, async (req, res) => {
   try {
     const janelaMin = Number(req.body?.janelaMin) || 720;
-    const r = await agendador.reconferirChips({ janelaMin });
+    // forcar: reconstrói os envios segmentados com a lista da REGRA, sem depender
+    // de comparação nenhuma. É a garantia de que nenhum grupo válido fica de fora.
+    const forcar = req.body?.forcar !== false;
+    const r = await agendador.reconferirChips({ janelaMin, forcar });
     return res.json(r);
   } catch (err) {
     console.error('Erro ao reconferir chips:', err);

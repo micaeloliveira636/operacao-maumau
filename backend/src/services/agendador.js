@@ -617,7 +617,7 @@ async function executarItens(demanda, itens, avisos, userId, tipoJob) {
  * campanha mudaram (caíram/entraram) e, se sim, apaga as ações antigas e
  * recria com os chips ATUAIS. Ideal rodar a cada ~5min via ping externo.
  */
-async function reconferirChips({ janelaMin = 15 } = {}) {
+async function reconferirChips({ janelaMin = 15, forcar = false } = {}) {
   if (!(await sendflow.estaConfigurado())) return { ok: false, error: 'SendFlow não configurado' };
 
   const agora = new Date();
@@ -688,17 +688,14 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
         res.erros.push(`${s.releaseId}: sem grupos para ${grupoFiltro} ao reconferir — pulado.`);
         continue;
       }
+      // A REGRA manda: o envio tem que ir pra EXATAMENTE os grupos que a regra
+      // diz agora (sem ⚜️ = link 1, com ⚜️ = link 2). Se estamos forçando, ou se
+      // não há lista gravada, ou se a lista mudou -> reconstrói. Não existe caso
+      // em que um grupo válido pode ficar de fora.
       const registrados = Array.isArray(s.resultJson?.grupoIds) ? s.resultJson.grupoIds : null;
       const gDepois = [...grupoIds].map(String).sort().join(',');
-      if (!registrados) {
-        // SEM baseline (agendamento criado antes de guardarmos a lista): recria
-        // por garantia. Era ESTE o furo — grupo novo adicionado à campanha ficava
-        // fora da lista fixa da ação e não recebia a mensagem. Depois da 1ª vez
-        // o baseline fica gravado e só recria quando muda de verdade.
-        gruposMudaram = true;
-      } else {
-        gruposMudaram = [...registrados].map(String).sort().join(',') !== gDepois;
-      }
+      gruposMudaram = forcar || !registrados
+        || [...registrados].map(String).sort().join(',') !== gDepois;
     } else if (gruposAquec && gruposAquec.length) {
       // AQUECIMENTO: lista escolhida à mão pelo admin — não muda sozinha.
       grupoIds = gruposAquec;
