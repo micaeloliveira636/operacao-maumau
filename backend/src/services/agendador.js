@@ -636,7 +636,7 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
 
   const cacheChips = new Map();
   const cacheGrupos = new Map(); // releaseId -> { link1, link2 } (1 busca por release)
-  const res = { verificados: rows.length, reagendados: 0, semMudanca: 0, textoPulado: 0, erros: [] };
+  const res = { verificados: rows.length, reagendados: 0, porGrupoNovo: 0, semMudanca: 0, textoPulado: 0, erros: [] };
 
   for (const s of rows) {
     let atuais;
@@ -688,10 +688,17 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
         res.erros.push(`${s.releaseId}: sem grupos para ${grupoFiltro} ao reconferir — pulado.`);
         continue;
       }
-      const gAntes = [...(s.resultJson?.grupoIds || [])].map(String).sort().join(',');
+      const registrados = Array.isArray(s.resultJson?.grupoIds) ? s.resultJson.grupoIds : null;
       const gDepois = [...grupoIds].map(String).sort().join(',');
-      // sem registro anterior não dá pra comparar — não força recriação à toa
-      gruposMudaram = Boolean(gAntes) && gAntes !== gDepois;
+      if (!registrados) {
+        // SEM baseline (agendamento criado antes de guardarmos a lista): recria
+        // por garantia. Era ESTE o furo — grupo novo adicionado à campanha ficava
+        // fora da lista fixa da ação e não recebia a mensagem. Depois da 1ª vez
+        // o baseline fica gravado e só recria quando muda de verdade.
+        gruposMudaram = true;
+      } else {
+        gruposMudaram = [...registrados].map(String).sort().join(',') !== gDepois;
+      }
     } else if (gruposAquec && gruposAquec.length) {
       // AQUECIMENTO: lista escolhida à mão pelo admin — não muda sozinha.
       grupoIds = gruposAquec;
@@ -755,6 +762,7 @@ async function reconferirChips({ janelaMin = 15 } = {}) {
       })
       .where(eq(sendflowSchedules.id, s.id));
     res.reagendados += 1;
+    if (gruposMudaram) res.porGrupoNovo += 1;
   }
 
   return { ok: true, ...res };

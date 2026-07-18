@@ -230,10 +230,13 @@ router.post('/rotina', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// POST /demandas/reconferir-chips — dispara a reconferência manualmente (admin)
+// POST /demandas/reconferir-chips — dispara a reconferência manualmente (admin).
+// Janela ampla por padrão (12h = resto do dia): é o botão pra usar logo depois
+// de ADICIONAR UM GRUPO na campanha — reconstrói os envios que ainda vão sair
+// com a lista de grupos atualizada, sem esperar o cron.
 router.post('/reconferir-chips', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const janelaMin = Number(req.body?.janelaMin) || 15;
+    const janelaMin = Number(req.body?.janelaMin) || 720;
     const r = await agendador.reconferirChips({ janelaMin });
     return res.json(r);
   } catch (err) {

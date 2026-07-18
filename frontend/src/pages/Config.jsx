@@ -191,7 +191,8 @@ function SendflowSettings() {
     setReconferindo(true);
     try {
       const r = await api.post('/demandas/reconferir-chips');
-      toast.sucesso(`Reconferência: ${r.verificados} envio(s), ${r.reagendados} reagendado(s), ${r.semMudanca} sem mudança`);
+      const grupo = r.porGrupoNovo ? ` (${r.porGrupoNovo} por grupo novo)` : '';
+      toast.sucesso(`Reconferência: ${r.verificados} envio(s), ${r.reagendados} reagendado(s)${grupo}, ${r.semMudanca} sem mudança`);
     } catch (err) {
       toast.erro(err.message);
     } finally {
@@ -255,11 +256,13 @@ function SendflowSettings() {
                 {testando ? <Spinner className="h-4 w-4" /> : <Icon name="refresh" className="h-4 w-4" />} Testar conexão
               </button>
               <button onClick={reconferir} disabled={reconferindo} className="btn-ghost">
-                {reconferindo ? <Spinner className="h-4 w-4" /> : <Icon name="clock" className="h-4 w-4" />} Reconferir chips agora
+                {reconferindo ? <Spinner className="h-4 w-4" /> : <Icon name="clock" className="h-4 w-4" />} Atualizar chips e grupos agora
               </button>
             </div>
             <p className="text-[11px] text-slate-500">
-              A reconferência roda sozinha via cron externo (a cada ~5min). Este botão força uma verificação manual dos envios das próximas horas.
+              A reconferência roda sozinha via cron externo (a cada ~5min), na janela dos próximos minutos.
+              <strong className="text-slate-400"> Use este botão sempre que ADICIONAR UM GRUPO NOVO na campanha</strong> — ele
+              reconstrói os envios que ainda vão sair hoje já com o grupo novo incluído (senão o grupo fica sem a mensagem).
             </p>
           </div>
         </div>
