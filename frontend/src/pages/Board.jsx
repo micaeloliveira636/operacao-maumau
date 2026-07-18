@@ -92,16 +92,28 @@ export default function Board() {
       const q = busca.toLowerCase();
       arr = arr.filter((d) => d.titulo.toLowerCase().includes(q));
     }
-    return arr;
+    // Ordem cronológica: hoje primeiro (por horário), depois os próximos dias.
+    return [...arr].sort((a, b) => {
+      const da = String(a.dataAlvo).slice(0, 10);
+      const dbb = String(b.dataAlvo).slice(0, 10);
+      if (da !== dbb) return da < dbb ? -1 : 1;
+      const ha = (a.horarios || [])[0] || '99:99';
+      const hb = (b.horarios || [])[0] || '99:99';
+      return ha < hb ? -1 : ha > hb ? 1 : 0;
+    });
   }, [data, categoria, busca]);
 
   // Ativas = ainda precisam de atenção; Concluídas = já agendadas c/ mídia + concluídas.
-  // Ativas mostram SÓ hoje e dias futuros — nunca dias que já passaram.
+  // ADMIN: só hoje e dias futuros (o board dele enche de coisa antiga).
+  // OPERADORA: vê TUDO que ainda falta fazer, sem filtro de data — senão o
+  // painel dela fica vazio e ela só acha as demandas pelas notificações.
   const hojeISO = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
   const concluidas = demandas.filter((d) => STATUS_CONCLUIDAS.includes(d.status));
-  const ativas = demandas.filter(
-    (d) => !STATUS_CONCLUIDAS.includes(d.status) && String(d.dataAlvo).slice(0, 10) >= hojeISO
-  );
+  const ativas = demandas.filter((d) => {
+    if (STATUS_CONCLUIDAS.includes(d.status)) return false;
+    if (!isAdmin) return true;
+    return String(d.dataAlvo).slice(0, 10) >= hojeISO;
+  });
   const emConcluidas = modo === 'concluidas';
   const visiveis = emConcluidas ? concluidas : ativas;
 

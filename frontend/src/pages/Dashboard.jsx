@@ -24,12 +24,21 @@ export default function Dashboard() {
   const recentes = [...demandas]
     .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
     .slice(0, 6);
-  // "Próximas por prazo" = só HOJE e dias FUTUROS (nunca dias que já passaram).
+  // "Próximas por prazo": HOJE primeiro, em ordem de horário, depois os próximos
+  // dias. Dias que já passaram não aparecem — exceto para a OPERADORA, que
+  // precisa achar tudo que ainda falta fazer (senão o painel dela fica vazio).
   const hojeISO = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
   const proximas = demandas
     .filter((d) => !['concluido'].includes(d.status))
-    .filter((d) => String(d.dataAlvo).slice(0, 10) >= hojeISO)
-    .sort((a, b) => new Date(a.dataAlvo) - new Date(b.dataAlvo))
+    .filter((d) => (isAdmin ? String(d.dataAlvo).slice(0, 10) >= hojeISO : true))
+    .sort((a, b) => {
+      const da = String(a.dataAlvo).slice(0, 10);
+      const dbb = String(b.dataAlvo).slice(0, 10);
+      if (da !== dbb) return da < dbb ? -1 : 1;
+      const ha = (a.horarios || [])[0] || '99:99';
+      const hb = (b.horarios || [])[0] || '99:99';
+      return ha < hb ? -1 : ha > hb ? 1 : 0;
+    })
     .slice(0, 5);
 
   return (
