@@ -102,7 +102,9 @@ function montarFeedbacks(base, weekday) {
       return { ordem: i, nome: `Feedback ${i + 1}`, horario: addMin(e.hora, off), legendaId, tipo: 'midia' };
     });
     // Feedback de entrada: SEMPRE só nos ATIVOS.
-    grupos.push({ categoria: 'feedback-entrada', titulo: `Feedbacks entrada ${e.hora}`, campanhas: ['ATIVOS 1', 'ATIVOS 2'], slots });
+    // entradaHora liga o feedback à entrada daquele horário — o título final
+    // pega o SLOT escolhido nela (ex.: "Feedbacks entrada 12h30 - FORTUNE DRAGON").
+    grupos.push({ categoria: 'feedback-entrada', titulo: `Feedbacks entrada ${e.hora}`, entradaHora: e.hora, campanhas: ['ATIVOS 1', 'ATIVOS 2'], slots });
   });
   for (const pd of base.pedidos) {
     if (['13:00', '15:00', '19:00'].includes(pd.hora)) {

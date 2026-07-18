@@ -106,6 +106,7 @@ export default function RotinaDia() {
     return (gs || []).map((g) => ({
       categoria: g.categoria,
       titulo: g.titulo,
+      entradaHora: g.entradaHora, // liga o feedback à entrada daquele horário (p/ pegar o slot)
       // Lara tem tipo China/Legalizada (só rótulo p/ Giselle saber qual fazer).
       laraTipo: g.categoria === 'feedback-lara' ? 'China' : undefined,
       // Grupos do AQUECIMENTO escolhidos (só lara usa; vazio = campanha inteira).
@@ -172,6 +173,17 @@ export default function RotinaDia() {
   const delGrupo = (i) => setFeedbacks((f) => f.filter((_, idx) => idx !== i));
   const setLaraTipo = (i, tipo) => setFeedbacks((f) => f.map((g, idx) => (idx === i ? { ...g, laraTipo: tipo } : g)));
   const setFeedbackField = (i, patch) => setFeedbacks((f) => f.map((g, idx) => (idx === i ? { ...g, ...patch } : g)));
+
+  // Título final do feedback:
+  //  - entrada: "Feedbacks entrada 12h30 - <SLOT da entrada daquele horário>"
+  //  - lara:    "Feedbacks lara 13:00 · China|Legalizada"
+  const tituloFeedback = (g) => {
+    if (g.categoria === 'feedback-lara') return g.laraTipo ? `${g.titulo} · ${g.laraTipo}` : g.titulo;
+    if (!g.entradaHora) return g.titulo;
+    const ent = entradas.find((x) => x.hora === g.entradaHora);
+    const base = `Feedbacks entrada ${String(g.entradaHora).replace(':', 'h')}`;
+    return ent?.slot ? `${base} - ${ent.slot}` : base;
+  };
   const toggleGrupoFeedback = (i, gid) =>
     setFeedbacks((f) => f.map((g, idx) => {
       if (idx !== i) return g;
@@ -232,8 +244,8 @@ export default function RotinaDia() {
     for (const g of feedbacks) {
       if (!feedbackResp || !g.slots?.length) continue;
       const camps = g.campanhas?.length ? g.campanhas : ['ATIVOS 1', 'ATIVOS 2'];
-      // Lara: acrescenta o rótulo China/Legalizada no título (pra Giselle saber).
-      const titulo = g.categoria === 'feedback-lara' && g.laraTipo ? `${g.titulo} · ${g.laraTipo}` : g.titulo;
+      // Título final: entrada leva o SLOT da entrada; lara leva China/Legalizada.
+      const titulo = tituloFeedback(g);
       out.push({
         titulo, categoria: g.categoria, dataAlvo,
         horarios: g.slots.map((s) => s.horario),
@@ -528,7 +540,7 @@ export default function RotinaDia() {
                     <div key={i} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-100">{g.titulo}</p>
+                          <p className="truncate text-sm font-medium text-slate-100">{tituloFeedback(g)}</p>
                           <p className="text-[11px] text-slate-500">
                             {g.slots.length} espaço(s){midia ? ` · ${midia} mídia` : ''}{texto ? ` · ${texto} texto` : ''} · {g.slots.map((s) => s.horario).join(', ')}
                           </p>
