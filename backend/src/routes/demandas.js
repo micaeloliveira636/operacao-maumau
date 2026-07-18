@@ -528,6 +528,20 @@ async function carregarParaAgendar(id) {
   return { demanda, arquivos: files };
 }
 
+/**
+ * Pode agendar nesta demanda? REGRA ÚNICA — usada pelo preview (que libera o
+ * botão) e pelo POST /agendar (que executa). Antes elas eram diferentes: o
+ * preview não aceitava 'agendamento_pendente'/'erro_agendamento', então uma
+ * demanda travada em "Agendando" deixava o botão "Disparar" DESABILITADO e não
+ * havia como reenviar pelo painel.
+ */
+function podeAgendarDemanda(demanda) {
+  const autoGerida = agendador.ehAutoGerida(demanda);
+  const temSlots = Array.isArray(demanda.slots) && demanda.slots.length > 0;
+  return ['aprovado', 'agendamento_pendente', 'erro_agendamento', 'texto_agendado'].includes(demanda.status)
+    || ((autoGerida || temSlots) && demanda.status === 'em_andamento');
+}
+
 // GET /demandas/:id/agendar/preview — mostra o plano (regras aplicadas) sem enviar
 router.get('/:id/agendar/preview', requireAuth, requireAdmin, async (req, res) => {
   try {
@@ -541,12 +555,9 @@ router.get('/:id/agendar/preview', requireAuth, requireAdmin, async (req, res) =
       plano.avisos = [...plano.avisos, `${passados} envio(s) com horário já passado — não serão agendados.`];
       plano.itens = futuros;
     }
-    const autoGerida = agendador.ehAutoGerida(demanda);
-    const temSlots = Array.isArray(demanda.slots) && demanda.slots.length > 0;
-    const statusOk = demanda.status === 'aprovado' || ((autoGerida || temSlots) && demanda.status === 'em_andamento');
     return res.json({
       status: demanda.status,
-      podeAgendar: statusOk && futuros.length > 0,
+      podeAgendar: podeAgendarDemanda(demanda) && futuros.length > 0,
       ...plano,
     });
   } catch (err) {
@@ -561,11 +572,7 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
     const { demanda, arquivos: files, erro, msg } = await carregarParaAgendar(req.params.id);
     if (erro) return res.status(erro).json({ error: msg });
 
-    const autoGerida = agendador.ehAutoGerida(demanda);
-    const temSlots = Array.isArray(demanda.slots) && demanda.slots.length > 0;
-    const statusOk = ['aprovado', 'agendamento_pendente', 'erro_agendamento', 'texto_agendado'].includes(demanda.status)
-      || ((autoGerida || temSlots) && demanda.status === 'em_andamento');
-    if (!statusOk) {
+    if (!podeAgendarDemanda(demanda)) {
       return res.status(400).json({ error: 'Demanda precisa estar aprovada para agendar' });
     }
 
