@@ -16,7 +16,10 @@ async function handler(req, res) {
   try {
     const janelaMin = Number(req.query.janela) || 15;
     const r = await agendador.reconferirChips({ janelaMin });
-    return res.json(r);
+    // Fecha o que já foi enviado (ex.: "bom dia" só de texto) pra não ficar
+    // eternamente parecendo pendente depois que a mensagem já saiu.
+    const fim = await agendador.finalizarEnviadas().catch(() => ({ concluidas: 0 }));
+    return res.json({ ...r, ...fim });
   } catch (err) {
     console.error('Erro no recheck-chips (cron):', err);
     return res.status(500).json({ error: 'Erro interno' });

@@ -1,6 +1,6 @@
 const { and, eq, ne, gte, lte, isNull, inArray } = require('drizzle-orm');
 const { db } = require('../db');
-const { sendflowSchedules, automationJobs, configuracoes } = require('../db/schema');
+const { sendflowSchedules, automationJobs, configuracoes, demandas: demandasTbl } = require('../db/schema');
 const sendflow = require('../utils/sendflow');
 
 // Nome canônico das campanhas (o que casa com a regra de AQUECIMENTO).
@@ -362,6 +362,33 @@ async function apagarAcoesDaDemanda(demandaId) {
   }
   if (actionIds.length) await sendflow.deletarAcoes(actionIds).catch(() => {});
   return actionIds.length;
+}
+
+/**
+ * FINALIZA AUTOMATICAMENTE o que já foi enviado.
+ * Demanda agendada (com mídia ou só texto) cujo ÚLTIMO horário já passou está
+ * concluída na prática — a mensagem já saiu. Sem isso, um "bom dia" só de texto
+ * (que é o normal) ficava pra sempre parecendo pendente, como se faltasse algo.
+ */
+async function finalizarEnviadas() {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const linhas = await db.select().from(demandasTbl).where(and(
+    inArray(demandasTbl.status, ['texto_agendado', 'agendado']),
+    lte(demandasTbl.dataAlvo, hoje)
+  ));
+  let concluidas = 0;
+  for (const d of linhas) {
+    const horarios = (d.horarios || []).filter(Boolean).sort();
+    const ultimo = horarios[horarios.length - 1];
+    if (!ultimo) continue;
+    // já passou do último envio? (com 5min de folga)
+    if (new Date(montarScheduledTo(d.dataAlvo, ultimo)).getTime() + 5 * 60000 > Date.now()) continue;
+    await db.update(demandasTbl)
+      .set({ status: 'concluido', updatedAt: new Date() })
+      .where(eq(demandasTbl.id, d.id));
+    concluidas += 1;
+  }
+  return { concluidas };
 }
 
 /**
@@ -811,5 +838,5 @@ async function reconferirChips({ janelaMin = 15, forcar = false } = {}) {
 
 module.exports = {
   montarPlano, montarPlanoTexto, executarAgendamento, executarAgendamentoTexto,
-  apagarProvisorios, apagarAcoesDaDemanda, limparAgendamentos, reconferirChips, montarLegenda, montarScheduledTo, ehAutoGerida, jaPassou,
+  apagarProvisorios, apagarAcoesDaDemanda, limparAgendamentos, reconferirChips, finalizarEnviadas, montarLegenda, montarScheduledTo, ehAutoGerida, jaPassou,
 };

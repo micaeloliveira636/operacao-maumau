@@ -24,12 +24,19 @@ export default function Dashboard() {
   const recentes = [...demandas]
     .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
     .slice(0, 6);
-  // "Próximas por prazo": HOJE primeiro, em ordem de horário, depois os próximos
-  // dias. Dias que já passaram não aparecem — exceto para a OPERADORA, que
-  // precisa achar tudo que ainda falta fazer (senão o painel dela fica vazio).
+  // "Próximas por prazo" = só o que AINDA VAI ACONTECER e ainda depende de você.
+  // Fora: concluídas, as que já estão agendadas no SendFlow (não falta nada) e
+  // as cujo último horário já passou (não faz sentido cobrar algo que já saiu).
   const hojeISO = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
+  const jaPassou = (d) => {
+    const horarios = (d.horarios || []).filter(Boolean).slice().sort();
+    const ultimo = horarios[horarios.length - 1];
+    if (!ultimo) return false;
+    return new Date(`${String(d.dataAlvo).slice(0, 10)}T${ultimo}:00-03:00`).getTime() < Date.now();
+  };
   const proximas = demandas
-    .filter((d) => !['concluido'].includes(d.status))
+    .filter((d) => !['concluido', 'agendado'].includes(d.status))
+    .filter((d) => !jaPassou(d))
     .filter((d) => (isAdmin ? String(d.dataAlvo).slice(0, 10) >= hojeISO : true))
     .sort((a, b) => {
       const da = String(a.dataAlvo).slice(0, 10);

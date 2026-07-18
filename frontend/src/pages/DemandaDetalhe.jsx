@@ -583,25 +583,27 @@ function PreviewAgendamentoModal({ plano, agendando, onClose, onConfirmar }) {
         </div>
       )}
 
-      <div className="max-h-72 overflow-auto rounded-xl border border-white/5">
-        <table className="w-full text-left text-xs">
+      {/* No celular só cabem as 2 colunas essenciais — as outras somem em vez de
+          espremer e vazar a tabela pro lado. */}
+      <div className="max-h-72 overflow-y-auto overflow-x-hidden rounded-xl border border-white/5">
+        <table className="w-full table-fixed text-left text-xs">
           <thead className="sticky top-0 bg-ink-800 text-slate-400">
             <tr>
               <th className="px-2 py-2 font-medium">Data e hora</th>
               <th className="px-2 py-2 font-medium">Campanha</th>
-              <th className="px-2 py-2 font-medium">Vel.</th>
-              <th className="px-2 py-2 font-medium">Menção</th>
-              <th className="px-2 py-2 font-medium">Var.</th>
+              <th className="hidden px-2 py-2 font-medium sm:table-cell">Vel.</th>
+              <th className="hidden px-2 py-2 font-medium sm:table-cell">Menção</th>
+              <th className="hidden px-2 py-2 font-medium sm:table-cell">Var.</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.04]">
             {itens.map((it, i) => (
               <tr key={i} className="text-slate-300">
                 <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-slate-100">{fmtQuando(it.scheduledTo, it.horario)}</td>
-                <td className="px-2 py-1.5">{it.campanha}</td>
-                <td className="px-2 py-1.5">{it.shippingSpeed}</td>
-                <td className="px-2 py-1.5">{it.mentionAll ? 'sim' : 'não'}</td>
-                <td className="px-2 py-1.5">{it.variante === 'link2' ? 'link 2' : '—'}</td>
+                <td className="truncate px-2 py-1.5">{it.campanha}</td>
+                <td className="hidden px-2 py-1.5 sm:table-cell">{it.shippingSpeed}</td>
+                <td className="hidden px-2 py-1.5 sm:table-cell">{it.mentionAll ? 'sim' : 'não'}</td>
+                <td className="hidden px-2 py-1.5 sm:table-cell">{it.variante === 'link2' ? 'link 2' : '—'}</td>
               </tr>
             ))}
             {itens.length === 0 && (
