@@ -186,27 +186,50 @@ async function buscarAccountIds(releaseId, { fresh = false } = {}) {
  * separado por nome). Cache curto igual aos chips.
  */
 const gruposCache = new Map(); // releaseId -> { grupos, ts }
-async function buscarGrupos(releaseId, { fresh = false } = {}) {
-  if (!fresh) {
-    const c = gruposCache.get(String(releaseId));
-    if (c && Date.now() - c.ts < CHIPS_TTL_MS && c.grupos.length) return c.grupos;
-  }
-  const b = await base();
-  const H = await headers();
-  const rr = await fetchSendflow(`${b}/releases/${encodeURIComponent(releaseId)}/groups`, { headers: H });
-  if (!rr.ok) {
-    const txt = await rr.text().catch(() => '');
-    throw new Error(`Grupos do release ${releaseId}: ${rr.status} ${txt.slice(0, 160)}`);
-  }
-  const arr = await rr.json().catch(() => []);
-  const grupos = (Array.isArray(arr) ? arr : arr.items || [])
-    .filter((g) => g && (g.gid || g.jid || g.id))
-    // gid = ID do grupo no WhatsApp (ex.: 120363...@g.us) — é ESTE que o envio
-    // por grupos (to:{type:'groups'}) exige. O `id` (doc) NÃO funciona: o envio
-    // fica sem grupo nenhum. Guardamos os dois; enviar usa sempre o gid.
-    .map((g) => ({ id: String(g.id), gid: String(g.gid || g.jid || g.id), name: String(g.name || '') }));
-  if (grupos.length) gruposCache.set(String(releaseId), { grupos, ts: Date.now() });
-  return grupos;
+const gruposEmVoo = new Map(); // releaseId -> Promise (dedupe de chamadas simultâneas)
+
+/**
+ * @param {object} opts
+ * @param {boolean} opts.fresh    ignora o cache (só o motor de envio usa)
+ * @param {number}  opts.maxAgeMs idade aceitável do cache. A UI passa um valor
+ *   longo: grupo novo entra de vez em quando, não vale queimar rate limit a
+ *   cada abertura de diálogo. O envio usa o padrão curto.
+ */
+async function buscarGrupos(releaseId, { fresh = false, maxAgeMs = CHIPS_TTL_MS } = {}) {
+  const chave = String(releaseId);
+  const cached = gruposCache.get(chave);
+  if (!fresh && cached && Date.now() - cached.ts < maxAgeMs && cached.grupos.length) return cached.grupos;
+
+  // Duas chamadas ao mesmo tempo (ex.: dois cliques) viram UMA só.
+  if (gruposEmVoo.has(chave)) return gruposEmVoo.get(chave);
+
+  // A promise já resolve com a LISTA pronta: se resolvesse com a Response, dois
+  // chamadores dividiriam o mesmo corpo e o segundo leria vazio.
+  const p = (async () => {
+    const b = await base();
+    const H = await headers();
+    const rr = await fetchSendflow(`${b}/releases/${encodeURIComponent(chave)}/groups`, { headers: H });
+    if (!rr.ok) {
+      const txt = await rr.text().catch(() => '');
+      // Rate limit / bloqueio: devolve o que já temos em vez de estourar. Lista
+      // de grupos velha é muito melhor que erro na cara do usuário — e evita
+      // que ele fique reclicando, o que geraria MAIS violações.
+      if (cached && cached.grupos.length) return cached.grupos;
+      throw new Error(`Grupos do release ${chave}: ${rr.status} ${txt.slice(0, 160)}`);
+    }
+    const arr = await rr.json().catch(() => []);
+    const grupos = (Array.isArray(arr) ? arr : arr.items || [])
+      .filter((g) => g && (g.gid || g.jid || g.id))
+      // gid = ID do grupo no WhatsApp (ex.: 120363...@g.us) — é ESTE que o envio
+      // por grupos (to:{type:'groups'}) exige. O `id` (doc) NÃO funciona: o envio
+      // fica sem grupo nenhum. Guardamos os dois; enviar usa sempre o gid.
+      .map((g) => ({ id: String(g.id), gid: String(g.gid || g.jid || g.id), name: String(g.name || '') }));
+    if (grupos.length) gruposCache.set(chave, { grupos, ts: Date.now() });
+    return grupos;
+  })().finally(() => gruposEmVoo.delete(chave));
+
+  gruposEmVoo.set(chave, p);
+  return p;
 }
 
 /**

@@ -170,9 +170,12 @@ router.get('/grupos', requireAuth, requireAdmin, async (req, res) => {
   try {
     const releaseId = req.query.releaseId;
     if (!releaseId) return res.status(400).json({ error: 'releaseId obrigatório' });
-    // Cache de 60s (SEM fresh): escolher grupo não precisa de dado fresco, e
-    // forçar fresh a cada troca de campanha estourava o rate limit / bloqueio.
-    const grupos = await sendflow.buscarGrupos(releaseId);
+    // Cache LONGO (30min): escolher grupo numa lista não precisa de dado
+    // fresco. Com 60s, abrir o diálogo e trocar de campanha algumas vezes já
+    // virava chamada nova e queimava o rate limit da API. Grupo novo aparece
+    // no máximo meia hora depois — e o ENVIO, que é o que não pode errar,
+    // continua resolvendo os grupos na hora.
+    const grupos = await sendflow.buscarGrupos(releaseId, { maxAgeMs: 30 * 60000 });
     return res.json({ grupos });
   } catch (err) {
     return res.status(502).json({ error: err.message || 'Falha ao buscar grupos' });
