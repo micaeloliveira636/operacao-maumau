@@ -11,6 +11,16 @@ export function formatarData(iso) {
   return `${DIAS_SEMANA[d.getDay()]} - ${dia}/${mes}/${d.getFullYear()}`;
 }
 
+// Partes soltas da data, pra caixinhas compactas (ex.: "20" / "JUL").
+// Não dá pra fatiar o texto de formatarData — o formato muda e quebra o layout.
+export function partesData(iso) {
+  if (!iso) return { dia: '—', mes: '' };
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + 'T12:00:00') : new Date(iso);
+  if (isNaN(d)) return { dia: '—', mes: '' };
+  const MESES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+  return { dia: String(d.getDate()).padStart(2, '0'), mes: MESES[d.getMonth()] };
+}
+
 export function formatarDataHora(iso) {
   if (!iso) return '—';
   const d = new Date(iso);

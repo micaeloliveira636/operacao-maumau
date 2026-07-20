@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useFetch } from '../lib/useFetch';
 import { STATUS } from '../lib/constants';
-import { formatarData, tempoRelativo } from '../lib/format';
+import { partesData, tempoRelativo } from '../lib/format';
 import { StatusBadge, LoadingScreen, EmptyState } from '../components/ui';
 import { Icon } from '../components/Icon';
 
@@ -100,13 +100,13 @@ export default function Dashboard() {
             <ul className="divide-y divide-white/[0.04]">
               {proximas.map((d) => (
                 <li key={d.id}>
-                  <Link to={`/demandas/${d.id}`} className="row-hover -mx-2 flex items-center gap-3 rounded-lg px-2 py-3">
+                  <Link to={`/demandas/${d.id}`} className="row-hover -mx-2 flex items-center gap-3 overflow-hidden rounded-lg px-2 py-3">
                     <div className="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-lg border border-white/5 bg-ink-800 text-center">
                       <span className="text-sm font-semibold leading-none text-slate-100">
-                        {formatarData(d.dataAlvo).split(' ')[0]}
+                        {partesData(d.dataAlvo).dia}
                       </span>
-                      <span className="text-[10px] uppercase text-slate-500">
-                        {formatarData(d.dataAlvo).split(' ')[1]}
+                      <span className="text-[10px] uppercase leading-none text-slate-500">
+                        {partesData(d.dataAlvo).mes}
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -115,7 +115,7 @@ export default function Dashboard() {
                         {d.categoria} · {(d.horarios || []).length} horário(s)
                       </p>
                     </div>
-                    <StatusBadge status={d.status} />
+                    <div className="flex-none"><StatusBadge status={d.status} /></div>
                   </Link>
                 </li>
               ))}
