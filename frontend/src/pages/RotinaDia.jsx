@@ -175,13 +175,13 @@ export default function RotinaDia() {
   const setFeedbackField = (i, patch) => setFeedbacks((f) => f.map((g, idx) => (idx === i ? { ...g, ...patch } : g)));
 
   // Título final do feedback:
-  //  - entrada: "Feedbacks entrada 12h30 - <SLOT da entrada daquele horário>"
+  //  - entrada: "Feedback 12h30 - <SLOT da entrada daquele horário>"
   //  - lara:    "Feedbacks lara 13:00 · China|Legalizada"
   const tituloFeedback = (g) => {
     if (g.categoria === 'feedback-lara') return g.laraTipo ? `${g.titulo} · ${g.laraTipo}` : g.titulo;
     if (!g.entradaHora) return g.titulo;
     const ent = entradas.find((x) => x.hora === g.entradaHora);
-    const base = `Feedbacks entrada ${String(g.entradaHora).replace(':', 'h')}`;
+    const base = `Feedback ${String(g.entradaHora).replace(':', 'h')}`;
     return ent?.slot ? `${base} - ${ent.slot}` : base;
   };
   const toggleGrupoFeedback = (i, gid) =>

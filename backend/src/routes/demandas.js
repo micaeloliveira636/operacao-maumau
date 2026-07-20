@@ -316,7 +316,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
  * PATCH /demandas/:id/slot — troca o SLOT de uma entrada EM CASCATA:
  *  1. título da entrada        ("Entrada 21:30 — FORTUNE DRAGON 🐉")
  *  2. texto/legenda da entrada (troca o nome do slot antigo pelo novo)
- *  3. título do feedback ligado ("Feedbacks entrada 21h30 - FORTUNE DRAGON 🐉")
+ *  3. título do feedback ligado ("Feedback 21h30 - FORTUNE DRAGON 🐉")
  *  4. se o texto já estava agendado, apaga no SendFlow e reagenda com o novo
  * Serve pra quando o slot muda em cima da hora (ex.: trocar às 13h).
  */
@@ -368,7 +368,7 @@ router.patch('/:id/slot', requireAuth, requireAdmin, async (req, res) => {
       const fb = candidatos.find((c) => c.entradaHora === hora)
         || candidatos.find((c) => String(c.titulo || '').includes(horaH) || String(c.titulo || '').includes(hora));
       if (fb && !['agendado', 'concluido'].includes(fb.status)) {
-        const tituloFb = `Feedbacks entrada ${String(hora).replace(':', 'h')} - ${novoSlot}`;
+        const tituloFb = `Feedback ${String(hora).replace(':', 'h')} - ${novoSlot}`;
         [feedbackAtualizado] = await db.update(demandas)
           .set({ slot: novoSlot, titulo: tituloFb, updatedAt: new Date() })
           .where(eq(demandas.id, fb.id))
