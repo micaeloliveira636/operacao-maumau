@@ -5,7 +5,9 @@
    - focar/abrir a aba ao clicar na notificação
 */
 
-const CACHE = 'maumau-shell-v4';
+// Subir esta versão invalida TODO o cache antigo no activate — use sempre que
+// um deploy precisar chegar em aparelho que ficou com bundle velho.
+const CACHE = 'maumau-shell-v5';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {
@@ -38,6 +40,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request).catch(() => caches.match('/index.html'))
     );
+    return;
+  }
+
+  // HTML nunca sai do cache: é ele que aponta pro bundle novo. Servir index
+  // velho é o que prendia o celular numa versão antiga do app.
+  if (url.pathname.endsWith('.html')) {
+    event.respondWith(fetch(request).catch(() => caches.match(request)));
     return;
   }
 

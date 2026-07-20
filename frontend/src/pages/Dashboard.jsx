@@ -100,12 +100,14 @@ export default function Dashboard() {
             <ul className="divide-y divide-white/[0.04]">
               {proximas.map((d) => (
                 <li key={d.id}>
-                  <Link to={`/demandas/${d.id}`} className="row-hover -mx-2 flex items-center gap-3 overflow-hidden rounded-lg px-2 py-3">
-                    <div className="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-lg border border-white/5 bg-ink-800 text-center">
-                      <span className="text-sm font-semibold leading-none text-slate-100">
+                  {/* Sem margem negativa: ela deixava a linha 16px mais larga que
+                      o painel e a etiqueta de status vazava pela borda no celular. */}
+                  <Link to={`/demandas/${d.id}`} className="row-hover flex w-full items-center gap-3 rounded-lg px-1 py-3">
+                    <div className="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-lg border border-white/5 bg-ink-800 text-center leading-none">
+                      <span className="text-sm font-semibold text-slate-100">
                         {partesData(d.dataAlvo).dia}
                       </span>
-                      <span className="text-[10px] uppercase leading-none text-slate-500">
+                      <span className="mt-0.5 text-[10px] uppercase text-slate-500">
                         {partesData(d.dataAlvo).mes}
                       </span>
                     </div>
@@ -115,7 +117,8 @@ export default function Dashboard() {
                         {d.categoria} · {(d.horarios || []).length} horário(s)
                       </p>
                     </div>
-                    <div className="flex-none"><StatusBadge status={d.status} /></div>
+                    {/* No celular a etiqueta não cabe junto do título — só do sm pra cima. */}
+                    <div className="hidden flex-none sm:block"><StatusBadge status={d.status} /></div>
                   </Link>
                 </li>
               ))}

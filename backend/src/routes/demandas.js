@@ -345,7 +345,8 @@ router.patch('/:id/slot', requireAuth, requireAdmin, async (req, res) => {
     if (slotAntigo && novaLegenda.includes(slotAntigo)) {
       novaLegenda = novaLegenda.split(slotAntigo).join(novoSlot);
     }
-    const novoTitulo = `Entrada ${hora}${novoSlot ? ` — ${novoSlot}` : ''}`;
+    // Separador é SEMPRE "·" — nunca travessão (regra do Micael).
+    const novoTitulo = `Entrada ${hora}${novoSlot ? ` · ${novoSlot}` : ''}`;
 
     // Se o texto já estava agendado, remove os provisórios antes de reagendar.
     const tinhaTexto = demanda.status === 'texto_agendado';
@@ -368,7 +369,7 @@ router.patch('/:id/slot', requireAuth, requireAdmin, async (req, res) => {
       const fb = candidatos.find((c) => c.entradaHora === hora)
         || candidatos.find((c) => String(c.titulo || '').includes(horaH) || String(c.titulo || '').includes(hora));
       if (fb && !['agendado', 'concluido'].includes(fb.status)) {
-        const tituloFb = `Feedback ${String(hora).replace(':', 'h')} - ${novoSlot}`;
+        const tituloFb = `Feedback ${String(hora).replace(':', 'h')} · ${novoSlot}`;
         [feedbackAtualizado] = await db.update(demandas)
           .set({ slot: novoSlot, titulo: tituloFb, updatedAt: new Date() })
           .where(eq(demandas.id, fb.id))

@@ -175,14 +175,15 @@ export default function RotinaDia() {
   const setFeedbackField = (i, patch) => setFeedbacks((f) => f.map((g, idx) => (idx === i ? { ...g, ...patch } : g)));
 
   // Título final do feedback:
-  //  - entrada: "Feedback 12h30 - <SLOT da entrada daquele horário>"
+  //  - entrada: "Feedback 12h30 · <SLOT da entrada daquele horário>"
   //  - lara:    "Feedbacks lara 13:00 · China|Legalizada"
+  // Separador é SEMPRE "·" — nunca travessão (regra do Micael).
   const tituloFeedback = (g) => {
     if (g.categoria === 'feedback-lara') return g.laraTipo ? `${g.titulo} · ${g.laraTipo}` : g.titulo;
     if (!g.entradaHora) return g.titulo;
     const ent = entradas.find((x) => x.hora === g.entradaHora);
     const base = `Feedback ${String(g.entradaHora).replace(':', 'h')}`;
-    return ent?.slot ? `${base} - ${ent.slot}` : base;
+    return ent?.slot ? `${base} · ${ent.slot}` : base;
   };
   const toggleGrupoFeedback = (i, gid) =>
     setFeedbacks((f) => f.map((g, idx) => {
@@ -235,7 +236,7 @@ export default function RotinaDia() {
       const legenda = e.texto?.trim() ? e.texto : textoEntrada(e.hora, e.modeloId, e.slot);
       if (!e.hora || !legenda.trim()) continue;
       out.push({
-        titulo: `Entrada ${e.hora}${e.slot ? ` — ${e.slot}` : ''}`, categoria: 'entrada', dataAlvo, horarios: [e.hora],
+        titulo: `Entrada ${e.hora}${e.slot ? ` · ${e.slot}` : ''}`, categoria: 'entrada', dataAlvo, horarios: [e.hora],
         legenda, campanhasDestino: ['ATIVOS 1', 'ATIVOS 2'],
         releaseIds: releasesDe(['ATIVOS 1', 'ATIVOS 2']), atribuidoA: user?.id, velocidade: 'normal',
         linkPrincipal: linkDia.principal || null, linkDois: linkDia.dois || null,
