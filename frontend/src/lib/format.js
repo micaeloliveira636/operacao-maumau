@@ -1,9 +1,14 @@
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+// "Terça - 20/07/2026" — o dia da semana ajuda a bater o olho e saber o dia.
 export function formatarData(iso) {
   if (!iso) return '—';
   // aceita 'YYYY-MM-DD' (date) sem virar dia anterior por timezone
   const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + 'T12:00:00') : new Date(iso);
   if (isNaN(d)) return iso;
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  return `${DIAS_SEMANA[d.getDay()]} - ${dia}/${mes}/${d.getFullYear()}`;
 }
 
 export function formatarDataHora(iso) {
