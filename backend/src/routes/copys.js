@@ -181,12 +181,15 @@ router.get('/grupos', requireAuth, requireAdmin, async (req, res) => {
 
 // ─────────────────────────── ENVIO ───────────────────────────
 
-// POST /copys/folders/:id/enviar — agenda TODAS as mensagens em cascata pra 1
-// grupo. body: { releaseId, grupoId (gid), data 'YYYY-MM-DD', hora 'HH:mm' }
+// POST /copys/folders/:id/enviar — agenda TODAS as mensagens em cascata pros
+// grupos escolhidos (em dia normal a copy sai pra 2-3 grupos de uma vez).
+// body: { releaseId, grupoIds: [gid], data 'YYYY-MM-DD', hora 'HH:mm' }
+// Aceita `grupoId` solto por compatibilidade com o formato antigo.
 router.post('/folders/:id/enviar', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { releaseId, grupoId, data, hora } = req.body || {};
-    if (!releaseId || !grupoId) return res.status(400).json({ error: 'releaseId e grupoId obrigatórios' });
+    const { releaseId, grupoIds, grupoId, data, hora } = req.body || {};
+    const gids = [...new Set((Array.isArray(grupoIds) ? grupoIds : [grupoId]).filter(Boolean))];
+    if (!releaseId || gids.length === 0) return res.status(400).json({ error: 'releaseId e ao menos um grupo obrigatórios' });
     if (!data || !hora) return res.status(400).json({ error: 'data e hora de início obrigatórias' });
 
     const [folder] = await db.select().from(copyFolders).where(eq(copyFolders.id, req.params.id)).limit(1);
@@ -225,7 +228,7 @@ router.post('/folders/:id/enviar', requireAuth, requireAdmin, async (req, res) =
         mensagem: m.texto || '',
         scheduledTo,
         shippingSpeed: 'slow',
-        grupoIds: [grupoId],
+        grupoIds: gids,
       });
 
       if (!envio.ok) {
@@ -243,7 +246,7 @@ router.post('/folders/:id/enviar', requireAuth, requireAdmin, async (req, res) =
 
     await logActivity({
       userId: req.user.id, action: 'copy.enviada',
-      metadata: { folder: folder.nome, grupoId, agendadas: resultados.agendadas },
+      metadata: { folder: folder.nome, grupoIds: gids, agendadas: resultados.agendadas },
       ipAddress: req.ip,
     });
 

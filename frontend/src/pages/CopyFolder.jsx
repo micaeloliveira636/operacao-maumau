@@ -188,7 +188,7 @@ export default function CopyFolder() {
 function EnviarCopyDialog({ folderId, mensagens, onClose, toast }) {
   const [releaseId, setReleaseId] = useState(CAMPANHAS.find((c) => c.nome === 'AQUECIMENTO')?.releaseId || CAMPANHAS[0].releaseId);
   const [grupos, setGrupos] = useState(null);
-  const [grupoId, setGrupoId] = useState('');
+  const [grupoIds, setGrupoIds] = useState([]); // em dia normal a copy sai pra 2-3 grupos
   const [carregandoGrupos, setCarregandoGrupos] = useState(false);
   const [data, setData] = useState(hojeISO());
   const [hora, setHora] = useState('');
@@ -197,7 +197,7 @@ function EnviarCopyDialog({ folderId, mensagens, onClose, toast }) {
 
   useEffect(() => {
     let vivo = true;
-    setGrupoId('');
+    setGrupoIds([]); // trocou de campanha: os gids anteriores não valem mais
     // Já buscado nesta sessão do diálogo? usa o cache, sem nova chamada à API.
     if (cacheGrupos.current[releaseId]) {
       setGrupos(cacheGrupos.current[releaseId]);
@@ -226,12 +226,15 @@ function EnviarCopyDialog({ folderId, mensagens, onClose, toast }) {
     });
   }, [mensagens, data, hora]);
 
+  const toggleGrupo = (gid) =>
+    setGrupoIds((s) => (s.includes(gid) ? s.filter((x) => x !== gid) : [...s, gid]));
+
   async function enviar() {
-    if (!grupoId) return toast.erro('Escolha o grupo');
+    if (grupoIds.length === 0) return toast.erro('Escolha ao menos um grupo');
     if (!hora) return toast.erro('Escolha a hora de início');
     setEnviando(true);
     try {
-      const r = await api.post(`/copys/folders/${folderId}/enviar`, { releaseId, grupoId, data, hora });
+      const r = await api.post(`/copys/folders/${folderId}/enviar`, { releaseId, grupoIds, data, hora });
       if (r.ok) toast.sucesso(`${r.agendadas} mensagem(ns) agendada(s)!`);
       else toast.erro((r.erros || []).slice(0, 1).join('') || 'Falha ao agendar');
       if (r.agendadas > 0) onClose();
@@ -251,12 +254,40 @@ function EnviarCopyDialog({ folderId, mensagens, onClose, toast }) {
             options={CAMPANHAS.map((c) => ({ value: c.releaseId, label: c.nome }))} />
         </div>
         <div>
-          <label className="label">Grupo</label>
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <label className="label mb-0">
+              Grupos {grupoIds.length > 0 && <span className="text-brand-300">({grupoIds.length})</span>}
+            </label>
+            {(grupos || []).length > 0 && (
+              <button type="button" onClick={() => setGrupoIds(grupoIds.length === grupos.length ? [] : grupos.map((g) => g.gid))}
+                className="text-[11px] text-brand-300 hover:text-brand-200">
+                {grupoIds.length === grupos.length ? 'limpar' : 'todos'}
+              </button>
+            )}
+          </div>
           {carregandoGrupos ? (
             <p className="text-xs text-slate-500"><Spinner className="mr-1 inline h-3.5 w-3.5" /> buscando grupos…</p>
+          ) : (grupos || []).length === 0 ? (
+            <p className="text-xs text-slate-500">Nenhum grupo nesta campanha.</p>
           ) : (
-            <Select value={grupoId} onChange={setGrupoId} placeholder="Escolha o grupo…"
-              options={(grupos || []).map((g) => ({ value: g.gid, label: g.name || g.gid }))} />
+            <div className="max-h-52 space-y-0.5 overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.015] p-1.5">
+              {grupos.map((g) => {
+                const on = grupoIds.includes(g.gid);
+                return (
+                  <button type="button" key={g.gid} onClick={() => toggleGrupo(g.gid)}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition ${
+                      on ? 'bg-brand-500/10 text-slate-100' : 'text-slate-300 hover:bg-white/[0.03]'
+                    }`}>
+                    <span className={`flex h-4 w-4 flex-none items-center justify-center rounded border transition ${
+                      on ? 'border-brand-400 bg-brand-500/80 text-white' : 'border-white/15'
+                    }`}>
+                      {on && <Icon name="check" className="h-3 w-3" />}
+                    </span>
+                    <span className="truncate">{g.name || g.gid}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -286,9 +317,10 @@ function EnviarCopyDialog({ folderId, mensagens, onClose, toast }) {
 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn-ghost">Cancelar</button>
-          <button onClick={enviar} disabled={enviando || !grupoId || !hora} className="btn-primary">
+          <button onClick={enviar} disabled={enviando || grupoIds.length === 0 || !hora} className="btn-primary">
             {enviando ? <Spinner className="h-4 w-4" /> : <Icon name="send" className="h-4 w-4" />}
-            Agendar {mensagens.length} mensagem(ns)
+            Agendar {mensagens.length} msg{mensagens.length > 1 ? 's' : ''}
+            {grupoIds.length > 1 ? ` em ${grupoIds.length} grupos` : ''}
           </button>
         </div>
       </div>
