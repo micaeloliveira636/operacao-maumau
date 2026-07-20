@@ -97,13 +97,19 @@ export default function CopyFolder() {
         {mensagens.map((m, i) => (
           <div key={m.id}>
             {i > 0 && (
-              <div className="flex items-center gap-2 py-1 pl-3 text-[11px] text-slate-500">
-                <Icon name="clock" className="h-3.5 w-3.5" />
-                enviar
-                <input type="number" min="0" value={m.offsetMin}
-                  onChange={(e) => salvarMsg(m.id, { offsetMin: Math.max(0, Number(e.target.value)) })}
-                  className="w-14 rounded-md border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-center text-xs text-slate-200" />
-                min depois da anterior
+              // Conector da cascata: a linha vertical mostra que uma mensagem
+              // puxa a outra; o intervalo fica num controle grande de clicar.
+              <div className="flex items-stretch gap-3 pl-5 sm:pl-6">
+                <div className="w-px flex-none bg-gradient-to-b from-white/[0.03] via-white/10 to-white/[0.03]" />
+                <div className="flex flex-wrap items-center gap-2 py-2.5 text-xs text-slate-400 sm:text-sm">
+                  <span className="inline-flex items-center gap-1.5 text-slate-500">
+                    <Icon name="clock" className="h-4 w-4" /> enviar
+                  </span>
+                  <input type="number" min="0" value={m.offsetMin}
+                    onChange={(e) => salvarMsg(m.id, { offsetMin: Math.max(0, Number(e.target.value)) })}
+                    className="w-16 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-center text-sm font-semibold text-slate-100 tabular-nums outline-none transition focus:border-brand-400/50 focus:bg-white/[0.06] sm:w-20 sm:text-base" />
+                  <span>min depois da anterior</span>
+                </div>
               </div>
             )}
             <div className="card card-pad">
