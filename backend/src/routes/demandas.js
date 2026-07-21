@@ -544,6 +544,18 @@ function podeAgendarDemanda(demanda) {
     || ((autoGerida || temSlots) && demanda.status === 'em_andamento');
 }
 
+// Motivo legível quando o agendamento falha. Sem isso a rota devolvia 400 com
+// só `{demanda, resultado}` (sem `.error`) e a tela mostrava "Erro 400" pelado,
+// escondendo a causa real (rate limit, chave bloqueada, campanha sem chips…).
+function motivoFalhaAgendamento(resultado = {}) {
+  if (resultado.error) return resultado.error;
+  const erros = Array.isArray(resultado.erros) ? resultado.erros.filter(Boolean) : [];
+  if (erros.length) return erros.slice(0, 2).join(' | ');
+  const avisos = Array.isArray(resultado.avisos) ? resultado.avisos.filter(Boolean) : [];
+  if (avisos.length) return avisos.slice(0, 2).join(' | ');
+  return 'Nada foi agendado. Verifique se a campanha tem chips e tente de novo.';
+}
+
 // GET /demandas/:id/agendar/preview — mostra o plano (regras aplicadas) sem enviar
 router.get('/:id/agendar/preview', requireAuth, requireAdmin, async (req, res) => {
   try {
@@ -630,7 +642,11 @@ router.post('/:id/agendar', requireAuth, requireAdmin, async (req, res) => {
       });
     }
 
-    return res.status(resultado.ok ? 200 : 400).json({ demanda: updated, resultado });
+    return res.status(resultado.ok ? 200 : 400).json({
+      demanda: updated,
+      resultado,
+      ...(resultado.ok ? {} : { error: motivoFalhaAgendamento(resultado) }),
+    });
   } catch (err) {
     console.error('Erro ao agendar:', err);
     await db
@@ -674,7 +690,11 @@ router.post('/:id/agendar-texto', requireAuth, requireAdmin, async (req, res) =>
       ipAddress: req.ip,
     });
 
-    return res.status(resultado.ok ? 200 : 400).json({ demanda: updated, resultado });
+    return res.status(resultado.ok ? 200 : 400).json({
+      demanda: updated,
+      resultado,
+      ...(resultado.ok ? {} : { error: motivoFalhaAgendamento(resultado) }),
+    });
   } catch (err) {
     console.error('Erro ao agendar texto:', err);
     return res.status(500).json({ error: 'Erro interno ao agendar texto' });
